@@ -78,12 +78,13 @@ class CaptionGenerator(BaseModel):
         pool5_feats = max_pool(conv5_3_feats, 2, 2, 2, 2, 'pool5')
         pool5_feats_flat = tf.reshape(pool5_feats, [self.batch_size, -1]) 
 
-        fc6_feats = fully_connected(pool5_feats_flat, 4096, 'fc6', input_dim=49*512)
+        pool5_feats_flat.set_shape([self.batch_size, 49*512])
+        fc6_feats = fully_connected(pool5_feats_flat, 4096, 'fc6')
         fc6_feats = nonlinear(fc6_feats, 'relu')
         if self.train_cnn:
             fc6_feats = dropout(fc6_feats, 0.5, is_train)
 
-        fc7_feats = fully_connected(fc6_feats, 4096, 'fc7', input_dim=4096)
+        fc7_feats = fully_connected(fc6_feats, 4096, 'fc7')
 
         conv5_3_feats_flat = tf.reshape(conv5_3_feats, [self.batch_size, 196, 512])
         self.conv_feats = conv5_3_feats_flat
@@ -289,7 +290,7 @@ class CaptionGenerator(BaseModel):
             else:
                 emb_w = weight('emb_w', [num_words, dim_embed], init_val=idx2vec, group_id=1)
         else:
-            emb_w = weight('emb_w', [num_words, dim_embed], init='he', group_id=1)
+            emb_w = weight('emb_w', [num_words, dim_embed], group_id=1)
 
         vec2idx = idx2vec.transpose()
         if params.init_dec_weight:
@@ -298,7 +299,7 @@ class CaptionGenerator(BaseModel):
             else:
                 dec_w = weight('dec_w', [dim_embed, num_words], init_val=vec2idx, group_id=1)
         else:
-            dec_w = weight('dec_w', [dim_embed, num_words], init='he', group_id=1)
+            dec_w = weight('dec_w', [dim_embed, num_words], group_id=1)
     
         if params.init_dec_bias: 
             dec_b = bias('dec_b', [num_words], init_val=self.word_table.word_freq)

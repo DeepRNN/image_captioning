@@ -18,6 +18,7 @@ def main(argv):
     parser.add_argument('--cnn_model', default = 'vgg16')
     parser.add_argument('--cnn_model_file', default = './tfmodels/vgg16.tfmodel')
     parser.add_argument('--load_cnn_model', action = 'store_true', default = False)
+    parser.add_argument('--train_cnn', action = 'store_true', default = False)
 
     parser.add_argument('--train_image_dir', default = './train/images/')
     parser.add_argument('--train_caption_file', default = './train/captions_train2014.json')
@@ -50,7 +51,6 @@ def main(argv):
     parser.add_argument('--num_lstm', type = int, default = 1)
     parser.add_argument('--dim_hidden', type = int, default = 300)
     parser.add_argument('--dim_embed', type = int, default = 300)
-    parser.add_argument('--train_cnn', action = 'store_true', default = False)
     parser.add_argument('--use_fc_feats', action = 'store_true', default = False)
 
     parser.add_argument('--init_embed_weight', action = 'store_true', default = False)
