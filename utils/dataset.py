@@ -66,7 +66,7 @@ def prepare_train_data(args):
     captions = annotations['caption'].values
     print("Number of training captions = %d" %(len(captions)))
 
-    print("Building the word table ...")
+    print("Building the word table...")
     word_table = WordTable(dim_embed, max_sent_len, word_table_file)
     if not os.path.exists(word_table_file):
         word_table.load_glove(glove_dir)
@@ -78,7 +78,7 @@ def prepare_train_data(args):
 
     caps, masks = symbolize_captions(captions, word_table)
 
-    print("Building the training dataset ...")
+    print("Building the training dataset...")
     dataset = DataSet(img_ids, img_files, caps, masks, batch_size, True, True)
     print("Dataset built.")
     return coco, dataset
@@ -92,7 +92,7 @@ def prepare_val_data(args):
     img_ids = list(coco.imgs.keys())
     img_files = [os.path.join(image_dir, coco.imgs[img_id]['file_name']) for img_id in img_ids]
   
-    print("Building the validation dataset ...")
+    print("Building the validation dataset...")
     dataset = DataSet(img_ids, img_files)
     print("Dataset built.")
     return coco, dataset
@@ -105,7 +105,7 @@ def prepare_test_data(args):
     img_files = [os.path.join(image_dir, f) for f in files if f.lower().endswith('.jpg')]
     img_ids = list(range(len(img_files)))
 
-    print("Building the testing dataset ...")    
+    print("Building the testing dataset...")    
     dataset = DataSet(img_ids, img_files)
     print("Dataset built.")
     return dataset
