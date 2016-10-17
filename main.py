@@ -32,7 +32,7 @@ def main(argv):
 
     parser.add_argument('--word_table_file', default = './words/word_table.pickle')
     parser.add_argument('--glove_dir', default = './words/')
-    parser.add_argument('--word2vec_scale', type = float, default = 0.1)
+    parser.add_argument('--word2vec_scale', type = float, default = 0.01)
     parser.add_argument('--max_sent_len', type = int, default = 30)
 
     parser.add_argument('--save_dir', default = './models/')
@@ -42,7 +42,7 @@ def main(argv):
     parser.add_argument('--solver', default = 'adam') 
     parser.add_argument('--num_epochs', type = int, default = 100)
     parser.add_argument('--batch_size', type = int, default = 32)
-    parser.add_argument('--learning_rate', type = float, default = 5e-4)
+    parser.add_argument('--learning_rate', type = float, default = 5e-5)
     parser.add_argument('--weight_decay', type = float, default = 1e-4)
     parser.add_argument('--momentum', type = float, default = 0.9) 
     parser.add_argument('--decay', type = float, default = 0.9) 
@@ -73,7 +73,6 @@ def main(argv):
             elif args.load_cnn_model:
                 model.load2(args.cnn_model_file, sess)
 
-         #  model.save(sess)
             model.train(sess, train_coco, train_data)
 
         elif args.phase == 'val':
@@ -85,7 +84,6 @@ def main(argv):
         else:
             test_data = prepare_test_data(args)
             model = CaptionGenerator(args, 'test')          
-            sess.run(tf.initialize_all_variables())
             model.load(sess)
             model.test(sess, test_data)
 

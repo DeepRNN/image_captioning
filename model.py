@@ -269,7 +269,7 @@ class CaptionGenerator(BaseModel):
         dim_embed = params.dim_embed
         dim_hidden = params.dim_hidden
 
-        if self.mode == 'train' and not self.train_cnn:
+        if not self.train_cnn:
             contexts = tf.placeholder(tf.float32, [batch_size] + self.conv_feat_shape)
             if self.use_fc_feats:
                 feats = tf.placeholder(tf.float32, [batch_size] + self.fc_feat_shape)
@@ -453,5 +453,12 @@ class CaptionGenerator(BaseModel):
         else:
             img_files = batch 
             fake_sentences = np.zeros((self.batch_size, self.params.max_sent_len), np.int32)
-            return {self.img_files: img_files, self.sentences: fake_sentences, self.is_train: is_train}
+            if self.train_cnn:
+                return {self.img_files: img_files, self.sentences: fake_sentences, self.is_train: is_train}
+            else:
+                if self.use_fc_feats:
+                    return {self.contexts: contexts, self.feats: feats, self.sentences: fake_sentences, self.is_train: is_train}        
+                else:
+                    return {self.contexts: contexts, self.sentences: fake_sentences, self.is_train: is_train} 
+
 

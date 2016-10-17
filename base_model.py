@@ -49,11 +49,12 @@ class BaseModel(object):
         self.params = params
         self.mode = mode
         self.batch_size = params.batch_size if mode=='train' else 1
-        self.save_dir = params.save_dir
 
         self.cnn_model = params.cnn_model
         self.train_cnn = params.train_cnn
         self.use_fc_feats = params.use_fc_feats if self.cnn_model=='vgg16' else False
+
+        self.save_dir = os.path.join(params.save_dir, self.cnn_model+'/')
 
         self.word_table = WordTable(params.dim_embed, params.max_sent_len, params.word_table_file)
         self.word_table.load()
@@ -110,7 +111,18 @@ class BaseModel(object):
 
         for k in tqdm(list(range(val_data.count))):
             batch = val_data.next_batch()
-            feed_dict = self.get_feed_dict(batch, is_train=False)
+
+            if self.train_cnn:
+                feed_dict = self.get_feed_dict(batch, is_train=False)
+            else:
+                img_files = batch
+                if self.use_fc_feats:
+                    contexts, feats = sess.run([self.conv_feats, self.fc_feats], feed_dict={self.img_files:img_files, self.is_train:False})
+                    feed_dict = self.get_feed_dict(batch, is_train=False, contexts=contexts, feats=feats)
+                else:
+                    contexts = sess.run(self.conv_feats, feed_dict={self.img_files:img_files, self.is_train:False})
+                    feed_dict = self.get_feed_dict(batch, is_train=False, contexts=contexts)
+
             result = sess.run(self.results, feed_dict=feed_dict)
             sentence = self.word_table.indices_to_sent(result.squeeze())
             results.append({'image_id': val_data.img_ids[k], 'caption': sentence})
@@ -129,7 +141,18 @@ class BaseModel(object):
         
         for k in tqdm(list(range(test_data.count))):
             batch = test_data.next_batch()
-            feed_dict = self.get_feed_dict(batch, is_train=False)
+
+            if self.train_cnn:
+                feed_dict = self.get_feed_dict(batch, is_train=False)
+            else:
+                img_files = batch
+                if self.use_fc_feats:
+                    contexts, feats = sess.run([self.conv_feats, self.fc_feats], feed_dict={self.img_files:img_files, self.is_train:False})
+                    feed_dict = self.get_feed_dict(batch, is_train=False, contexts=contexts, feats=feats)
+                else:
+                    contexts = sess.run(self.conv_feats, feed_dict={self.img_files:img_files, self.is_train:False})
+                    feed_dict = self.get_feed_dict(batch, is_train=False, contexts=contexts)
+
             result = sess.run(self.results, feed_dict=feed_dict)
             sentence = self.word_table.indices_to_sent(result.squeeze())
             captions.append(sentence)
@@ -143,7 +166,7 @@ class BaseModel(object):
         self.saver.save(sess, self.save_dir, self.global_step)
 
     def load(self, sess):
-        print("Loading model ...")
+        print("Loading model...")
         checkpoint = tf.train.get_checkpoint_state(self.save_dir)
         if checkpoint is None:
             print("Error: No saved model found. Please train first.")
