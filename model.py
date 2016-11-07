@@ -7,12 +7,13 @@ from base_model import *
 from utils.nn import *
 
 class CaptionGenerator(BaseModel):
-
     def build(self):
+        """ Build the model. """
         self.build_cnn()
         self.build_rnn()
 
     def build_cnn(self):
+        """ Build the CNN. """
         print("Building the CNN part...")
 
         if self.cnn_model=='vgg16':
@@ -30,15 +31,11 @@ class CaptionGenerator(BaseModel):
         print("CNN part built.")
 
     def build_vgg16(self):
+        """ Build the VGG16 net. """
         bn = self.params.batch_norm
 
-        img_files = tf.placeholder(tf.string, [self.batch_size])
+        imgs = tf.placeholder(tf.float32, [self.batch_size]+self.img_shape)
         is_train = tf.placeholder(tf.bool)
-
-        imgs = []
-        for img_file in tf.unpack(img_files):
-            imgs.append(self.img_loader.load_img(img_file))
-        imgs = tf.pack(imgs)          
 
         conv1_1_feats = convolution(imgs, 3, 3, 64, 1, 1, 'conv1_1')
         conv1_1_feats = batch_norm(conv1_1_feats, 'bn1_1', is_train, bn, 'relu')
@@ -93,10 +90,11 @@ class CaptionGenerator(BaseModel):
         self.fc_feats = fc7_feats
         self.fc_feat_shape = [4096]
 
-        self.img_files = img_files
+        self.imgs = imgs
         self.is_train = is_train
 
     def basic_block(self, input_feats, name1, name2, is_train, bn, c, s=2):
+        """ A basic block of ResNets. """
         branch1_feats = convolution_no_bias(input_feats, 1, 1, 4*c, s, s, name1+'_branch1')
         branch1_feats = batch_norm(branch1_feats, name2+'_branch1', is_train, bn, None)
 
@@ -114,6 +112,7 @@ class CaptionGenerator(BaseModel):
         return output_feats
 
     def basic_block2(self, input_feats, name1, name2, is_train, bn, c):
+        """ Another basic block of ResNets. """
         branch2a_feats = convolution_no_bias(input_feats, 1, 1, c, 1, 1, name1+'_branch2a')
         branch2a_feats = batch_norm(branch2a_feats, name2+'_branch2a', is_train, bn, 'relu')
 
@@ -128,15 +127,11 @@ class CaptionGenerator(BaseModel):
         return output_feats
 
     def build_resnet50(self):
+        """ Build the ResNet50 net. """
         bn = self.params.batch_norm
 
-        img_files = tf.placeholder(tf.string, [self.batch_size])
+        imgs = tf.placeholder(tf.float32, [self.batch_size]+self.img_shape)
         is_train = tf.placeholder(tf.bool)
-
-        imgs = []
-        for img_file in tf.unpack(img_files):
-            imgs.append(self.img_loader.load_img(img_file))
-        imgs = tf.pack(imgs)          
 
         conv1_feats = convolution(imgs, 7, 7, 64, 2, 2, 'conv1')
         conv1_feats = batch_norm(conv1_feats, 'bn_conv1', is_train, bn, 'relu')
@@ -166,19 +161,15 @@ class CaptionGenerator(BaseModel):
         self.conv_feats = res5c_feats_flat
         self.conv_feat_shape = [49, 2048]
 
-        self.img_files = img_files
+        self.imgs = imgs
         self.is_train = is_train
 
     def build_resnet101(self):
+        """ Build the ResNet101 net. """
         bn = self.params.batch_norm
 
-        img_files = tf.placeholder(tf.string, [self.batch_size])
+        imgs = tf.placeholder(tf.float32, [self.batch_size]+self.img_shape)
         is_train = tf.placeholder(tf.bool)
-
-        imgs = []
-        for img_file in tf.unpack(img_files):
-            imgs.append(self.img_loader.load_img(img_file))
-        imgs = tf.pack(imgs)  
 
         conv1_feats = convolution(imgs, 7, 7, 64, 2, 2, 'conv1')
         conv1_feats = batch_norm(conv1_feats, 'bn_conv1', is_train, bn, 'relu')
@@ -208,19 +199,15 @@ class CaptionGenerator(BaseModel):
         self.conv_feats = res5c_feats_flat
         self.conv_feat_shape = [49, 2048]
 
-        self.img_files = img_files
+        self.imgs = imgs
         self.is_train = is_train
 
     def build_resnet152(self):
+        """ Build the ResNet152 net. """
         bn = self.params.batch_norm
 
-        img_files = tf.placeholder(tf.string, [self.batch_size])
+        imgs = tf.placeholder(tf.float32, [self.batch_size]+self.img_shape)
         is_train = tf.placeholder(tf.bool)
-
-        imgs = []
-        for img_file in tf.unpack(img_files):
-            imgs.append(self.img_loader.load_img(img_file))
-        imgs = tf.pack(imgs)  
 
         conv1_feats = convolution(imgs, 7, 7, 64, 2, 2, 'conv1')
         conv1_feats = batch_norm(conv1_feats, 'bn_conv1', is_train, bn, 'relu')
@@ -250,10 +237,11 @@ class CaptionGenerator(BaseModel):
         self.conv_feats = res5c_feats_flat
         self.conv_feat_shape = [49, 2048]
 
-        self.img_files = img_files
+        self.imgs = imgs
         self.is_train = is_train
 
     def build_rnn(self):
+        """ Build the RNN. """
         print("Building the RNN part...")
 
         params = self.params
@@ -268,14 +256,15 @@ class CaptionGenerator(BaseModel):
         num_lstm = params.num_lstm
         dim_embed = params.dim_embed
         dim_hidden = params.dim_hidden
+        dim_dec = params.dim_dec
 
         if not self.train_cnn:
             contexts = tf.placeholder(tf.float32, [batch_size] + self.conv_feat_shape)
-            if self.use_fc_feats:
+            if self.init_lstm_with_fc_feats:
                 feats = tf.placeholder(tf.float32, [batch_size] + self.fc_feat_shape)
         else:
             contexts = self.conv_feats
-            if self.use_fc_feats:
+            if self.init_lstm_with_fc_feats:
                 feats = self.fc_feats
 
         sentences = tf.placeholder(tf.int32, [batch_size, max_sent_len])
@@ -283,76 +272,87 @@ class CaptionGenerator(BaseModel):
 
         is_train = self.is_train
 
-        idx2vec = np.array([self.word_table.word2vec[self.word_table.idx2word[i]] for i in range(num_words)]) * params.word2vec_scale
-        if params.init_embed_weight:
-            if params.fix_embed_weight:
-                emb_w = tf.convert_to_tensor(idx2vec, tf.float32)
-            else:
-                emb_w = weight('emb_w', [num_words, dim_embed], init_val=idx2vec, group_id=1)
-        else:
-            emb_w = weight('emb_w', [num_words, dim_embed], group_id=1)
+        self.word_weight = np.exp(-np.array(self.word_table.word_freq)*self.class_balancing_factor)
 
-        vec2idx = idx2vec.transpose()
-        if params.init_dec_weight:
-            if params.fix_dec_weight:
-                dec_w = tf.convert_to_tensor(vec2idx, tf.float32) 
-            else:
-                dec_w = weight('dec_w', [dim_embed, num_words], init_val=vec2idx, group_id=1)
+        self.position_weight = np.exp(-np.array(list(range(max_sent_len)))*0.003)
+
+        # initialize the word embedding
+        idx2vec = np.array([self.word_table.word2vec[self.word_table.idx2word[i]] for i in range(num_words)])
+        if params.fix_embed_weight:
+            emb_w = tf.convert_to_tensor(idx2vec, tf.float32)
         else:
-            dec_w = weight('dec_w', [dim_embed, num_words], group_id=1)
-    
+            emb_w = weight('emb_w', [num_words, dim_embed], init_val=idx2vec, group_id=1)
+
+        # initialize the decoding layer
+        dec_w = weight('dec_w', [dim_dec, num_words], group_id=1)  
         if params.init_dec_bias: 
             dec_b = bias('dec_b', [num_words], init_val=self.word_table.word_freq)
         else:
             dec_b = bias('dec_b', [num_words], init_val=0.0)
-
+ 
+        # compute the mean context
         context_mean = tf.reduce_mean(contexts, 1)
-        if self.use_fc_feats:
+       
+        # initialize the LSTMs
+        lstm = tf.nn.rnn_cell.LSTMCell(dim_hidden, initializer=tf.random_normal_initializer(stddev=0.01)) 
+
+        if self.init_lstm_with_fc_feats:
             init_feats = feats
         else:
             init_feats = context_mean
 
-        lstm = tf.nn.rnn_cell.BasicLSTMCell(dim_hidden, state_is_tuple=True)
-
         if num_lstm == 1:
-            memory = fully_connected(init_feats, dim_hidden, 'init_lstm_fc1', group_id=1)
-            memory = batch_norm(memory, 'init_lstm_bn1', is_train, bn, 'tanh')
-
-            output = fully_connected(init_feats, dim_hidden, 'init_lstm_fc2', group_id=1)
-            output = batch_norm(output, 'init_lstm_bn2', is_train, bn, 'tanh')
+            temp = init_feats
+            for i in range(params.num_init_layers):
+                temp = fully_connected(temp, dim_hidden, 'init_lstm_fc1'+str(i), group_id=1)
+                temp = batch_norm(temp, 'init_lstm_bn1'+str(i), is_train, bn, 'tanh')
+            memory = tf.identity(temp)
+ 
+            temp = init_feats
+            for i in range(params.num_init_layers):
+                temp = fully_connected(temp, dim_hidden, 'init_lstm_fc2'+str(i), group_id=1)
+                temp = batch_norm(temp, 'init_lstm_bn2'+str(i), is_train, bn, 'tanh')
+            output = tf.identity(temp)
 
             state = tf.nn.rnn_cell.LSTMStateTuple(memory, output)                   
 
         else:
-            memory1 = fully_connected(init_feats, dim_hidden, 'init_lstm_fc11', group_id=1)
-            memory1 = batch_norm(memory1, 'init_lstm_bn11', is_train, bn, 'tanh')
+            temp = init_feats
+            for i in range(params.num_init_layers):
+                temp = fully_connected(temp, dim_hidden, 'init_lstm_fc11'+str(i), group_id=1)
+                temp = batch_norm(temp, 'init_lstm_bn11'+str(i), is_train, bn, 'tanh')
+            memory1 = tf.identity(temp)
+ 
+            temp = init_feats
+            for i in range(params.num_init_layers):
+                temp = fully_connected(temp, dim_hidden, 'init_lstm_fc12'+str(i), group_id=1)
+                temp = batch_norm(temp, 'init_lstm_bn12'+str(i), is_train, bn, 'tanh')
+            output1 = tf.identity(temp)
 
-            output1 = fully_connected(init_feats, dim_hidden, 'init_lstm_fc12', group_id=1)
-            output1 = batch_norm(output1, 'init_lstm_bn12', is_train, bn, 'tanh')
-
-            memory2 = fully_connected(init_feats, dim_hidden, 'init_lstm_fc21', group_id=1)
-            memory2 = batch_norm(memory2, 'init_lstm_bn21', is_train, bn, 'tanh')
-
-            output = fully_connected(init_feats, dim_hidden, 'init_lstm_fc22', group_id=1)
-            output = batch_norm(output, 'init_lstm_bn22', is_train, bn, 'tanh')
+            temp = init_feats
+            for i in range(params.num_init_layers):
+                temp = fully_connected(temp, dim_hidden, 'init_lstm_fc21'+str(i), group_id=1)
+                temp = batch_norm(temp, 'init_lstm_bn21'+str(i), is_train, bn, 'tanh')
+            memory2 = tf.identity(temp)
+ 
+            temp = init_feats
+            for i in range(params.num_init_layers):
+                temp = fully_connected(temp, dim_hidden, 'init_lstm_fc22'+str(i), group_id=1)
+                temp = batch_norm(temp, 'init_lstm_bn22'+str(i), is_train, bn, 'tanh')
+            output = tf.identity(temp)
 
             state1 = tf.nn.rnn_cell.LSTMStateTuple(memory1, output1)                
             state2 = tf.nn.rnn_cell.LSTMStateTuple(memory2, output)                 
 
-        word_emb = tf.zeros([batch_size, dim_embed])
-
         loss0 = 0.0
         results = []
         scores = []
-
+        context_flat = tf.reshape(contexts, [-1, dim_ctx])  
+       
+        # Generate the words one by one 
         for idx in range(max_sent_len):
 
-            if idx > 0:
-                tf.get_variable_scope().reuse_variables()                           
-                word_emb = tf.cond(is_train, lambda: tf.nn.embedding_lookup(emb_w, sentences[:, idx-1]), lambda: word_emb)
-            
-            context_flat = tf.reshape(contexts, [-1, dim_ctx])                                                 
-
+            # Attention mechanism
             context_encode1 = fully_connected(context_flat, dim_ctx, 'att_fc11', group_id=1) 
             context_encode1 = batch_norm(context_encode1, 'att_bn11', is_train, bn, None) 
 
@@ -362,15 +362,22 @@ class CaptionGenerator(BaseModel):
             context_encode2 = tf.reshape(context_encode2, [-1, dim_ctx])    
 
             context_encode = context_encode1 + context_encode2  
-            context_encode = nonlinear(context_encode, 'tanh')  
+            context_encode = nonlinear(context_encode, 'relu')  
+            context_encode = dropout(context_encode, 0.5, is_train)
 
             alpha = fully_connected(context_encode, 1, 'att_fc2', group_id=1)                 
             alpha = batch_norm(alpha, 'att_bn2', is_train, bn, None)
             alpha = tf.reshape(alpha, [-1, num_ctx])                                                           
             alpha = tf.nn.softmax(alpha)                                                                       
-
-            weighted_context = tf.reduce_sum(contexts * tf.expand_dims(alpha, 2), 1)
+         
+            if idx == 0:   
+                word_emb = tf.zeros([batch_size, dim_embed])
+                weighted_context = tf.identity(context_mean)
+            else:
+                word_emb = tf.cond(is_train, lambda: tf.nn.embedding_lookup(emb_w, sentences[:, idx-1]), lambda: word_emb)
+                weighted_context = tf.reduce_sum(contexts * tf.expand_dims(alpha, 2), 1)
             
+            # Apply the LSTMs 
             if num_lstm == 1:
                 with tf.variable_scope("lstm"):
                     output, state = lstm(tf.concat(1, [weighted_context, word_emb]), state)
@@ -381,18 +388,20 @@ class CaptionGenerator(BaseModel):
                 with tf.variable_scope("lstm2"):
                     output, state2 = lstm(tf.concat(1, [word_emb, output1]), state2)
             
+            # Update the loss 
             expanded_output = tf.concat(1, [output, weighted_context, word_emb])
 
-            logits1 = fully_connected(expanded_output, dim_embed, 'dec_fc', group_id=1)
-            logits1 = nonlinear(logits1, 'relu') 
+            logits1 = fully_connected(expanded_output, dim_dec, 'dec_fc', group_id=1)
+            logits1 = nonlinear(logits1, 'tanh')
             logits1 = dropout(logits1, 0.5, is_train)
 
             logits2 = tf.nn.xw_plus_b(logits1, dec_w, dec_b)
 
             cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits2, sentences[:, idx])
             cross_entropy = cross_entropy * masks[:, idx]
-            loss0 +=  tf.reduce_sum(cross_entropy)
-
+            loss0 += tf.reduce_sum(cross_entropy)
+ 
+            # Update the result
             max_prob_word = tf.argmax(logits2, 1)
             results.append(max_prob_word)
 
@@ -400,18 +409,23 @@ class CaptionGenerator(BaseModel):
             score = tf.reduce_max(probs, 1)
             scores.append(score)
 
-            word_emb = tf.cond(is_train, lambda: word_emb, lambda: tf.nn.embedding_lookup(emb_w, max_prob_word))
+            # Prepare for the next iteration
+            word_emb = tf.cond(is_train, lambda: word_emb, lambda: tf.nn.embedding_lookup(emb_w, max_prob_word))          
+            tf.get_variable_scope().reuse_variables()                           
 
+        # Get the final result
         results = tf.pack(results, axis=1)
         scores = tf.pack(scores, axis=1)
 
+        # Compute the final loss 
         loss0 = loss0 / tf.reduce_sum(masks)
         if self.train_cnn:
             loss1 = params.weight_decay * (tf.add_n(tf.get_collection('l2_0')) + tf.add_n(tf.get_collection('l2_1')))
         else:
             loss1 = params.weight_decay * tf.add_n(tf.get_collection('l2_1'))
         loss = loss0 + loss1
-
+        
+        # Build the solver
         if params.solver == 'adam':
             solver = tf.train.AdamOptimizer(params.learning_rate)
         elif params.solver == 'momentum':
@@ -421,10 +435,12 @@ class CaptionGenerator(BaseModel):
         else:
             solver = tf.train.GradientDescentOptimizer(params.learning_rate)
 
-        opt_op = solver.minimize(loss, global_step=self.global_step)
+        tvars = tf.trainable_variables()
+        gs, _ = tf.clip_by_global_norm(tf.gradients(loss, tvars), 3.0)
+        opt_op = solver.apply_gradients(zip(gs, tvars), global_step=self.global_step)
 
         self.contexts = contexts
-        if self.use_fc_feats:
+        if self.init_lstm_with_fc_feats:
             self.feats = feats
         self.sentences = sentences
         self.masks = masks
@@ -440,23 +456,35 @@ class CaptionGenerator(BaseModel):
         print("RNN part built.")        
 
     def get_feed_dict(self, batch, is_train, contexts=None, feats=None):
+        """ Get the feed dictionary for the current batch. """
         if is_train:
+            # training phase
             img_files, sentences, masks = batch
+            imgs = self.img_loader.load_imgs(img_files)
+
+            for i in range(self.batch_size):
+                word_weight = self.word_weight[sentences[i, :]]                
+                masks[i, :] = masks[i, :] * word_weight
+                masks[i, :] = masks[i, :] * self.position_weight
+
             if self.train_cnn:
-                return {self.img_files: img_files, self.sentences: sentences, self.masks: masks, self.is_train: is_train}
+                return {self.imgs: imgs, self.sentences: sentences, self.masks: masks, self.is_train: is_train}
             else:
-                if self.use_fc_feats:
+                if self.init_lstm_with_fc_feats:
                     return {self.contexts: contexts, self.feats: feats, self.sentences: sentences, self.masks: masks, self.is_train: is_train}        
                 else:
                     return {self.contexts: contexts, self.sentences: sentences, self.masks: masks, self.is_train: is_train} 
 
         else:
+            # testing or validation phase
             img_files = batch 
+            imgs = self.img_loader.load_imgs(img_files)
             fake_sentences = np.zeros((self.batch_size, self.params.max_sent_len), np.int32)
+
             if self.train_cnn:
-                return {self.img_files: img_files, self.sentences: fake_sentences, self.is_train: is_train}
+                return {self.imgs: imgs, self.sentences: fake_sentences, self.is_train: is_train}
             else:
-                if self.use_fc_feats:
+                if self.init_lstm_with_fc_feats:
                     return {self.contexts: contexts, self.feats: feats, self.sentences: fake_sentences, self.is_train: is_train}        
                 else:
                     return {self.contexts: contexts, self.sentences: fake_sentences, self.is_train: is_train} 
