@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow.python.training import moving_averages
 
 def weight(name, shape, init='normal', range=0.1, stddev=0.01, init_val=None, group_id=0):
+    """ Get a weight variable. """
     if init_val != None:
         initializer = tf.constant_initializer(init_val)
     elif init == 'uniform':
@@ -25,13 +26,13 @@ def weight(name, shape, init='normal', range=0.1, stddev=0.01, init_val=None, gr
     tf.add_to_collection('l2_'+str(group_id), tf.nn.l2_loss(var))
     return var
 
-
 def bias(name, dim, init_val=0.0):
+    """ Get a bias variable. """
     dims = dim if isinstance(dim, list) else [dim]
     return tf.get_variable(name, dims, initializer = tf.constant_initializer(init_val))
 
-
 def nonlinear(x, nl=None):
+    """ Apply a nonlinearity layer. """ 
     if nl == 'relu':
         return tf.nn.relu(x)
     elif nl == 'tanh':
@@ -42,6 +43,7 @@ def nonlinear(x, nl=None):
         return x
 
 def convolution(x, k_h, k_w, c_o, s_h, s_w, name, init_w='normal', init_b=0, stddev=0.01, padding='SAME', group_id=0):
+    """ Apply a convolutional layer (with bias). """
     c_i = _get_shape(x)[-1]
     convolve = lambda i, k: tf.nn.conv2d(i, k, [1, s_h, s_w, 1], padding=padding)
     with tf.variable_scope(name) as scope:
@@ -51,8 +53,8 @@ def convolution(x, k_h, k_w, c_o, s_h, s_w, name, init_w='normal', init_b=0, std
         z = tf.nn.bias_add(z, b)
     return z
 
-
 def convolution_no_bias(x, k_h, k_w, c_o, s_h, s_w, name, init_w='normal', stddev=0.01, padding='SAME', group_id=0):
+    """ Apply a convolutional layer (without bias). """
     c_i = _get_shape(x)[-1]
     convolve = lambda i, k: tf.nn.conv2d(i, k, [1, s_h, s_w, 1], padding=padding)
     with tf.variable_scope(name) as scope:
@@ -60,8 +62,8 @@ def convolution_no_bias(x, k_h, k_w, c_o, s_h, s_w, name, init_w='normal', stdde
         z = convolve(x, w)
     return z
 
-
 def fully_connected(x, output_size, name, init_w='normal', init_b=0, stddev=0.01, group_id=0):
+    """ Apply a fully-connected layer (with bias). """
     x_shape = _get_shape(x)
     input_dim = x_shape[-1]
 
@@ -71,8 +73,8 @@ def fully_connected(x, output_size, name, init_w='normal', init_b=0, stddev=0.01
         z = tf.nn.xw_plus_b(x, w, b)
     return z
 
-
 def fully_connected_no_bias(x, output_size, name, init_w='normal', stddev=0.01, group_id=0):
+    """ Apply a fully-connected layer (without bias). """
     x_shape = _get_shape(x)
     input_dim = x_shape[-1]
 
@@ -81,15 +83,15 @@ def fully_connected_no_bias(x, output_size, name, init_w='normal', stddev=0.01, 
         z = tf.matmul(x, w)
     return z
 
-
 def batch_norm(x, name, is_train, bn=True, nl='relu'):
+    """ Apply a batch normalization layer and a nonlinearity layer. """
     if bn:
         x = _batch_norm(x, name, is_train)
     x = nonlinear(x, nl)
     return x
 
-
 def _batch_norm(x, name, is_train):
+    """ Apply a batch normalization layer. """
     with tf.variable_scope(name):
         inputs_shape = x.get_shape()
         axis = list(range(len(inputs_shape) - 1))
@@ -122,25 +124,25 @@ def _batch_norm(x, name, is_train):
 
     return normed
 
-
 def dropout(x, keep_prob, is_train):
+    """ Apply a dropout layer. """
     return tf.cond(is_train, lambda: tf.nn.dropout(x, keep_prob), lambda: x)
 
-
 def max_pool(x, k_h, k_w, s_h, s_w, name, padding='SAME'):
+    """ Apply a max pooling layer. """
     return tf.nn.max_pool(x, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding, name=name)
 
-
 def avg_pool(x, k_h, k_w, s_h, s_w, name, padding='SAME'):
+    """ Apply an average pooling layer. """
     return tf.nn.avg_pool(x, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding, name=name)
 
-
 def _get_dims(shape):
+    """ Get the fan-in and fan-out of a Tensor. """
     fan_in = np.prod(shape[:-1])
     fan_out = shape[-1]
     return fan_in, fan_out
 
-
 def _get_shape(x):
+    """ Get the shape of a Tensor. """
     return x.get_shape().as_list()
 
