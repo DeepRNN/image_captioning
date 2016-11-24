@@ -2,6 +2,14 @@ This is an implementation of the neural network architecture for image captionin
 
 This project is implemented in Tensorflow, and allows end-to-end training of both CNN and RNN parts. To use it, you will need the Tensorflow version of VGG16 or ResNet(50, 101, 152) model, which can be obtained by using Caffe-to-Tensorflow. 
 
+Examples
+----------
+![image](examples/1.jpg) ![image](examples/2.jpg) ![image](examples/3.jpg)
+
+![image](examples/4.jpg) ![image](examples/5.jpg) ![image](examples/6.jpg)
+
+![image](examples/7.jpg) ![image](examples/8.jpg) ![image](examples/9.jpg)
+
 References
 ----------
 
