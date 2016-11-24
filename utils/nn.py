@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.training import moving_averages
 
-def weight(name, shape, init='normal', range=0.1, stddev=0.01, init_val=None, group_id=0):
+def weight(name, shape, init='he', range=0.1, stddev=0.01, init_val=None, group_id=0):
     """ Get a weight variable. """
     if init_val != None:
         initializer = tf.constant_initializer(init_val)
@@ -42,7 +42,7 @@ def nonlinear(x, nl=None):
     else:
         return x
 
-def convolution(x, k_h, k_w, c_o, s_h, s_w, name, init_w='normal', init_b=0, stddev=0.01, padding='SAME', group_id=0):
+def convolution(x, k_h, k_w, c_o, s_h, s_w, name, init_w='he', init_b=0, stddev=0.01, padding='SAME', group_id=0):
     """ Apply a convolutional layer (with bias). """
     c_i = _get_shape(x)[-1]
     convolve = lambda i, k: tf.nn.conv2d(i, k, [1, s_h, s_w, 1], padding=padding)
@@ -53,7 +53,7 @@ def convolution(x, k_h, k_w, c_o, s_h, s_w, name, init_w='normal', init_b=0, std
         z = tf.nn.bias_add(z, b)
     return z
 
-def convolution_no_bias(x, k_h, k_w, c_o, s_h, s_w, name, init_w='normal', stddev=0.01, padding='SAME', group_id=0):
+def convolution_no_bias(x, k_h, k_w, c_o, s_h, s_w, name, init_w='he', stddev=0.01, padding='SAME', group_id=0):
     """ Apply a convolutional layer (without bias). """
     c_i = _get_shape(x)[-1]
     convolve = lambda i, k: tf.nn.conv2d(i, k, [1, s_h, s_w, 1], padding=padding)
@@ -62,7 +62,7 @@ def convolution_no_bias(x, k_h, k_w, c_o, s_h, s_w, name, init_w='normal', stdde
         z = convolve(x, w)
     return z
 
-def fully_connected(x, output_size, name, init_w='normal', init_b=0, stddev=0.01, group_id=0):
+def fully_connected(x, output_size, name, init_w='he', init_b=0, stddev=0.01, group_id=0):
     """ Apply a fully-connected layer (with bias). """
     x_shape = _get_shape(x)
     input_dim = x_shape[-1]
@@ -73,7 +73,7 @@ def fully_connected(x, output_size, name, init_w='normal', init_b=0, stddev=0.01
         z = tf.nn.xw_plus_b(x, w, b)
     return z
 
-def fully_connected_no_bias(x, output_size, name, init_w='normal', stddev=0.01, group_id=0):
+def fully_connected_no_bias(x, output_size, name, init_w='he', stddev=0.01, group_id=0):
     """ Apply a fully-connected layer (without bias). """
     x_shape = _get_shape(x)
     input_dim = x_shape[-1]

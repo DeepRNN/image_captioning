@@ -294,7 +294,7 @@ class CaptionGenerator(BaseModel):
         context_mean = tf.reduce_mean(contexts, 1)
        
         # initialize the LSTMs
-        lstm = tf.nn.rnn_cell.LSTMCell(dim_hidden, initializer=tf.random_normal_initializer(stddev=0.01)) 
+        lstm = tf.nn.rnn_cell.LSTMCell(dim_hidden, initializer=tf.random_normal_initializer(stddev=0.03)) 
 
         if self.init_lstm_with_fc_feats:
             init_feats = feats
@@ -388,7 +388,7 @@ class CaptionGenerator(BaseModel):
                 with tf.variable_scope("lstm2"):
                     output, state2 = lstm(tf.concat(1, [word_emb, output1]), state2)
             
-            # Update the loss 
+            # Compute the logits
             expanded_output = tf.concat(1, [output, weighted_context, word_emb])
 
             logits1 = fully_connected(expanded_output, dim_dec, 'dec_fc', group_id=1)
@@ -397,6 +397,7 @@ class CaptionGenerator(BaseModel):
 
             logits2 = tf.nn.xw_plus_b(logits1, dec_w, dec_b)
 
+            # Update the loss
             cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits2, sentences[:, idx])
             cross_entropy = cross_entropy * masks[:, idx]
             loss0 += tf.reduce_sum(cross_entropy)

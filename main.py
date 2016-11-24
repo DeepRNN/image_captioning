@@ -26,6 +26,7 @@ def main(argv):
 
     parser.add_argument('--val_image_dir', default='./val/images/', help='Directory containing the COCO val2014 images')
     parser.add_argument('--val_caption_file', default='./val/captions_val2014.json', help='JSON file storing the captions for COCO val2014 images')
+    parser.add_argument('--val_result_dir', default='./val/results/', help='Directory to store the validation results as images')
 
     parser.add_argument('--test_image_dir', default='./test/images/', help='Directory containing the testing images')
     parser.add_argument('--test_result_file', default='./test/results.csv', help='File to store the testing results')
@@ -37,13 +38,13 @@ def main(argv):
     parser.add_argument('--vocab_size', type=int, default=5000, help='Maximum vocabulary size')
 
     parser.add_argument('--save_dir', default='./models/', help='Directory to contain the trained model')
-    parser.add_argument('--save_period', type=int, default=1000, help='Period to save the trained model')
+    parser.add_argument('--save_period', type=int, default=2000, help='Period to save the trained model')
     
     parser.add_argument('--solver', default='adam', help='Optimizer to use: Can be adam, momentum, rmsprop or sgd') 
     parser.add_argument('--num_epochs', type=int, default=10, help='Number of training epochs')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
-    parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate')
-    parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay')
+    parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
+    parser.add_argument('--weight_decay', type=float, default=5e-4, help='Weight decay')
     parser.add_argument('--momentum', type=float, default=0.9, help='Momentum (for some optimizers)') 
     parser.add_argument('--decay', type=float, default=0.9, help='Decay (for some optimizers)') 
     parser.add_argument('--batch_norm', action='store_true', default=False, help='Turn on to use batch normalization')  
@@ -57,7 +58,7 @@ def main(argv):
     parser.add_argument('--init_embed_with_glove', action='store_true', default=False, help='Turn on to initialize the word embedding with the GloVe data')  
     parser.add_argument('--fix_embed_weight', action='store_true', default=False, help='Turn on to fix the word embedding')
     parser.add_argument('--init_dec_bias', action='store_true', default=False, help='Turn on to initialize the bias for word generation with the frequency of each word')
-    parser.add_argument('--class_balancing_factor', type=float, default=0.7, help='Class balancing factor. The larger it is, the model pays more attention to rare words.') 
+    parser.add_argument('--class_balancing_factor', type=float, default=0.0, help='Class balancing factor. The larger it is, the model pays more attention to rare words.') 
 
     args = parser.parse_args()
 

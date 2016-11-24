@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import cv2
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 from tqdm import tqdm
 
 from dataset import *
@@ -111,6 +113,7 @@ class BaseModel(object):
 
             train_data.reset()
 
+        self.save(sess)
 
         print("Training complete.")
 
@@ -118,10 +121,14 @@ class BaseModel(object):
         """ Validate the model. """
         print("Validating the model ...")
         results = []
+        result_dir = self.params.val_result_dir
 
         # Generate the captions for the images
         for k in tqdm(list(range(val_data.count))):
             batch = val_data.next_batch()
+            img_files = batch
+            img_file = img_files[0]
+            img_name = os.path.splitext(img_file.split(os.sep)[-1])[0]
 
             if self.train_cnn:
                 feed_dict = self.get_feed_dict(batch, is_train=False)
@@ -140,6 +147,13 @@ class BaseModel(object):
             sentence = self.word_table.indices_to_sent(result.squeeze())
             results.append({'image_id': val_data.img_ids[k], 'caption': sentence})
 
+            # Save the result in an image file
+            img = mpimg.imread(img_file)
+            plt.imshow(img)
+            plt.axis('off')
+            plt.title(sentence)
+            plt.savefig(os.path.join(result_dir, img_name+'_result.jpg'))
+
         val_data.reset() 
 
         # Evaluate these captions
@@ -148,13 +162,12 @@ class BaseModel(object):
         scorer.evaluate()
         print("Validation complete.")
 
-    def test(self, sess, test_data, show_result=True):
+    def test(self, sess, test_data, show_result=False):
         """ Test the model. """
         print("Testing the model ...")
         result_file = self.params.test_result_file
         result_dir = self.params.test_result_dir
         captions = []
-        font = cv2.FONT_HERSHEY_COMPLEX        
 
         # Generate the captions for the images
         for k in tqdm(list(range(test_data.count))):
@@ -179,31 +192,12 @@ class BaseModel(object):
             sentence = self.word_table.indices_to_sent(result.squeeze())
             captions.append(sentence)
         
-            # Show the caption if required
-            img = cv2.imread(img_file)
-            H, W, D = img.shape
-            words = sentence.split(' ')
-            num_word = len(words)
-            num_word_per_line = int(W / 80)
-            if num_word % num_word_per_line == 0:
-                num_line = int(num_word / num_word_per_line)
-            else:
-                num_line = int(num_word / num_word_per_line) + 1
-            cap = np.ones((num_line*30+15, W, 3), np.uint8) * 255                  
-            start = 0
-            for j in range(num_line):
-                end = min(start + num_word_per_line, num_word)
-                cv2.putText(cap, ' '.join(words[start:end]), (10, j*25+20), font, 0.6, (0, 0, 0), 1)
-                start = end
-            extended_img = np.concatenate((img, cap), axis=0)
- 
-            if show_result:
-                cv2.imshow(img_name, extended_img)
-                cv2.moveWindow(img_name, 700, 100)
-                cv2.waitKey(5000)
-                cv2.destroyAllWindows()
-
-            cv2.imwrite(os.path.join(result_dir, img_name+'_result.jpg'), extended_img)                
+            # Save the result in an image file
+            img = mpimg.imread(img_file)
+            plt.imshow(img)
+            plt.axis('off')
+            plt.title(sentence)
+            plt.savefig(os.path.join(result_dir, img_name+'_result.jpg'))
 
         # Save the captions to a file
         results = pd.DataFrame({'image_files':test_data.img_files, 'caption':captions})
