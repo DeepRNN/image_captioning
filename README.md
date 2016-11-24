@@ -4,13 +4,15 @@ This project is implemented in Tensorflow, and allows end-to-end training of bot
 
 Examples
 ----------
-![image](examples/1.jpg=400x300)[image](examples/2.jpg=400x300)
-
+![image](examples/1.jpg)
+![image](examples/2.jpg)
 ![image](examples/3.jpg)
-
-![image](examples/4.jpg)![image](examples/5.jpg)![image](examples/6.jpg)
-
-![image](examples/7.jpg)![image](examples/8.jpg)![image](examples/9.jpg)
+![image](examples/4.jpg)
+![image](examples/5.jpg)
+![image](examples/6.jpg)
+![image](examples/7.jpg)
+![image](examples/8.jpg)
+![image](examples/9.jpg)
 
 References
 ----------
