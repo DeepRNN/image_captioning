@@ -21,7 +21,7 @@ class WordTable():
             for w in sent.lower().split(' '):
                 word_count[w] = word_count.get(w, 0) + 1
                 if w not in self.word2vec:
-                    self.word2vec[w] = 0.01 * np.random.randn(self.dim_embed)
+                    self.word2vec[w] = 0.05 * np.random.randn(self.dim_embed)
 
         sorted_word_count = sorted(list(word_count.items()), key=lambda x: x[1], reverse=True) 
         self.num_words = min(len(sorted_word_count), self.max_num_words)

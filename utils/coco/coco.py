@@ -433,7 +433,7 @@ class COCO:
             ann['caption'] = ' '.join(q)
 
     def filter_by_cap_len(self, max_cap_len):
-        print("Removing extremely long captions...")
+        print("Removing the long captions...")
         keep_ann = {}
         keep_img = {}
         for ann in self.dataset['annotations']:
@@ -446,4 +446,24 @@ class COCO:
 
         self.createIndex()
 
+    def filter_by_words(self, vocab):
+        print("Removing the captions containing the rare words...")
+        keep_ann = {}
+        keep_img = {}
+        for ann in self.dataset['annotations']:
+            keep_ann[ann['id']] = 1
+            words_in_ann = ann['caption'].split(' ')
+            for word in words_in_ann:
+                if word not in vocab:
+                    keep_ann[ann['id']] = 0
+                    break
+            keep_img[ann['image_id']] = keep_img.get(ann['image_id'], 0) + 1
+
+        self.dataset['annotations'] = [ann for ann in self.dataset['annotations'] if keep_ann.get(ann['id'],0)>0]
+        self.dataset['images'] = [img for img in self.dataset['images'] if keep_img.get(img['id'],0)>0]
+
+        self.createIndex()
+
+    def all_captions(self):
+        return [ann['caption'] for ann_id, ann in self.anns.items()]
 
