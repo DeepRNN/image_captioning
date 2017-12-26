@@ -8,7 +8,7 @@ from utils.words import *
 from utils.coco.coco import *
 
 class DataSet():
-    def __init__(self, img_ids, img_files, caps=None, masks=None, batch_size=1, is_train=False, shuffle=False):
+    def __init__(self, img_ids, img_files, batch_size, caps=None, masks=None, is_train=False, shuffle=False):
         self.img_ids = np.array(img_ids)
         self.img_files = np.array(img_files)
         self.caps = np.array(caps)
@@ -21,8 +21,8 @@ class DataSet():
     def setup(self):
         """ Setup the dataset. """
         self.count = len(self.img_ids)
-        self.num_batches = int(self.count * 1.0 / self.batch_size)
-        self.current_index = 0
+        self.num_batches = int(np.ceil(self.count * 1.0 / self.batch_size))
+        self.fake_count = self.num_batches * self.batch_size - self.count
         self.indices = list(range(self.count))
         self.reset()
 
@@ -35,8 +35,14 @@ class DataSet():
     def next_batch(self):
         """ Fetch the next batch. """
         assert self.has_next_batch()
-        start, end = self.current_index, self.current_index + self.batch_size
-        current_idx = self.indices[start:end]
+
+        if self.has_full_next_batch():
+            start, end = self.current_index, self.current_index + self.batch_size
+            current_idx = self.indices[start:end]
+        else:
+            start, end = self.current_index, self.count 
+            current_idx = self.indices[start:end] + list(np.random.choice(self.count, self.fake_count))
+
         img_files = self.img_files[current_idx]
         if self.is_train:
             caps = self.caps[current_idx]
@@ -48,14 +54,18 @@ class DataSet():
             return img_files
 
     def has_next_batch(self):
-        """ Determine whether there is any batch left. """
-        return self.current_index + self.batch_size <= self.count
+        """ Determine whether there is a batch left. """
+        return self.current_index < self.count
 
+    def has_full_next_batch(self):
+        """ Determine whether there is a full batch left. """
+        return self.current_index + self.batch_size <= self.count
 
 def prepare_train_data(args):
     """ Prepare relevant data for training the model. """
     image_dir, caption_file, annotation_file = args.train_image_dir, args.train_caption_file, args.train_annotation_file
-    init_embed_with_glove, vocab_size, word_table_file, glove_dir = args.init_embed_with_glove, args.vocab_size, args.word_table_file, args.glove_dir
+    init_embed_with_glove, vocab_size = args.init_embed_with_glove, args.vocab_size
+    word_table_file, glove_dir = args.word_table_file, args.glove_dir
     dim_embed, batch_size, max_sent_len = args.dim_embed, args.batch_size, args.max_sent_len
 
     coco = COCO(caption_file)
@@ -87,7 +97,7 @@ def prepare_train_data(args):
     caps, masks = symbolize_captions(captions, word_table)
 
     print("Building the training dataset...")
-    dataset = DataSet(img_ids, img_files, caps, masks, batch_size, True, True)
+    dataset = DataSet(img_ids, img_files, batch_size, caps, masks, True, True)
     print("Dataset built.")
     return coco, dataset
 
@@ -101,7 +111,7 @@ def prepare_val_data(args):
     img_files = [os.path.join(image_dir, coco.imgs[img_id]['file_name']) for img_id in img_ids]
   
     print("Building the validation dataset...")
-    dataset = DataSet(img_ids, img_files)
+    dataset = DataSet(img_ids, img_files, args.batch_size)
     print("Dataset built.")
     return coco, dataset
 
@@ -115,7 +125,7 @@ def prepare_test_data(args):
     img_ids = list(range(len(img_files)))
 
     print("Building the testing dataset...")    
-    dataset = DataSet(img_ids, img_files)
+    dataset = DataSet(img_ids, img_files, args.batch_size)
     print("Dataset built.")
     return dataset
 
