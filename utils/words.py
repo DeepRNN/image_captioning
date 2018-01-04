@@ -15,7 +15,7 @@ class WordTable():
         self.save_file = save_file
 
     def build(self, sentences):
-        """ Build the vocabulary by selecting the words that occur frequently in the given sentences, and compute the frequencies of these words. """
+        """ Build the vocabulary and compute the frequencies of the words. """
         word_count = {}
         for sent in sentences:
             for w in sent.lower().split(' '):
@@ -67,7 +67,7 @@ class WordTable():
         res = res.replace(' ;', ';')
         res = res.replace(' :', ':')
         res = res.replace(' .', '.')
-        return res
+        return res, punctuation
 
     def all_words(self):
         """ Get all the words in the vocabulary. """
