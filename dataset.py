@@ -101,9 +101,11 @@ def prepare_train_data(args):
     print("Dataset built.")
     return coco, dataset
 
+
 def prepare_val_data(args):
     """ Prepare relevant data for validating the model. """
     image_dir, caption_file = args.val_image_dir, args.val_caption_file
+    batch_size = args.batch_size
 
     coco = COCO(caption_file)
 
@@ -111,7 +113,7 @@ def prepare_val_data(args):
     img_files = [os.path.join(image_dir, coco.imgs[img_id]['file_name']) for img_id in img_ids]
   
     print("Building the validation dataset...")
-    dataset = DataSet(img_ids, img_files, args.batch_size)
+    dataset = DataSet(img_ids, img_files, batch_size)
     print("Dataset built.")
     return coco, dataset
 
@@ -119,13 +121,14 @@ def prepare_val_data(args):
 def prepare_test_data(args):
     """ Prepare relevant data for testing the model. """
     image_dir = args.test_image_dir
+    batch_size = args.batch_size
 
     files = os.listdir(image_dir)
     img_files = [os.path.join(image_dir, f) for f in files if f.lower().endswith('.jpg')]
     img_ids = list(range(len(img_files)))
 
     print("Building the testing dataset...")    
-    dataset = DataSet(img_ids, img_files, args.batch_size)
+    dataset = DataSet(img_ids, img_files, batch_size)
     print("Dataset built.")
     return dataset
 

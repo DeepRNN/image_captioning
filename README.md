@@ -1,6 +1,6 @@
 This neural system for image captioning is roughly based on the paper "Show, Attend and Tell: Neural Image Caption Generation with Visual Attention" by Xu et al. (ICML2015). It is implemented using the Tensorflow library, and allows end-to-end training of both CNN and RNN parts. To use it, you will need the Tensorflow version of VGG16 or ResNet 50/101/152, which can be obtained with Caffe-to-Tensorflow. 
 
-**The code has been updated to be compatible with Tensorflow r1.4**.
+**The code is now compatible with Tensorflow r1.4**.
 
 References
 ----------

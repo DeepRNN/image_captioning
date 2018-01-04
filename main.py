@@ -148,15 +148,20 @@ def main(argv):
                         default=0.9, 
                         help='Decay for the optimizer (if applicable)') 
 
-    parser.add_argument('--batch_norm', 
+    parser.add_argument('--use_batch_norm', 
                         action='store_true', 
                         default=False, 
                         help='Turn on to use batch normalization')  
 
-    parser.add_argument('--dropout_keep_prob', 
+    parser.add_argument('--fc_keep_prob', 
                         type=float, 
                         default=0.5, 
-                        help='Keep probability in the Dropout layers')
+                        help='Keep probability in dropout for fully-connected layers')
+
+    parser.add_argument('--lstm_keep_prob', 
+                        type=float, 
+                        default=0.7, 
+                        help='Keep probability in dropout for LSTM layers')
 
     parser.add_argument('--dim_embed', 
                         type=int, 
@@ -183,11 +188,6 @@ def main(argv):
                         default=False, 
                         help='Turn on to initialize the word embedding with the GloVe data')  
 
-    parser.add_argument('--fix_embed_weight', 
-                        action='store_true', 
-                        default=False, 
-                        help='Turn on to fix the word embedding')
-
     parser.add_argument('--init_dec_bias', 
                         action='store_true', 
                         default=False, 
@@ -197,6 +197,16 @@ def main(argv):
                         type=float, 
                         default=0.0, 
                         help='The larger this factor is, the more attention the rare words receive') 
+
+    parser.add_argument('--att_coeff', 
+                        type=float, 
+                        default=10, 
+                        help='Weight for the doubly-stochastic attention loss') 
+
+    parser.add_argument('--beam_size', 
+                        type=int, 
+                        default=3, 
+                        help='Beam size in beam search for caption generation. ') 
 
     args = parser.parse_args()
 

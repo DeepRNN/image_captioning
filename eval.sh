@@ -4,6 +4,9 @@ for file in ./models/*.npy
 do
     filename=$(basename "$file")
     filename="${filename%.*}"
-    python main.py --load --model_file="$file" --phase=val > "$filename".txt
+    for value in {1..5}
+    do
+        python main.py --phase=val --model_file="$file" --beam_size=$value > "${filename}_${value}.txt"
+    done
 done
 exit 0
