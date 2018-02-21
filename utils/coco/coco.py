@@ -57,6 +57,9 @@ import copy
 import itertools
 import mask
 import os
+import string
+from tqdm import tqdm
+from nltk.tokenize import word_tokenize
 
 class COCO:
     def __init__(self, annotation_file=None):
@@ -73,7 +76,7 @@ class COCO:
         self.catToImgs = {}
         self.imgs = {}
         self.cats = {}
-        self.img_name_to_id = {}       
+        self.img_name_to_id = {}
 
         if not annotation_file == None:
             print 'loading annotations into memory...'
@@ -347,54 +350,6 @@ class COCO:
         res.createIndex()
         return res
 
-    def loadRes2(self, anns):
-        """
-        Load result file and return a result api object.
-        :param   resFile (str)     : file name of result file
-        :return: res (obj)         : result api object
-        """
-        res = COCO()
-        res.dataset['images'] = [img for img in self.dataset['images']]
-        # res.dataset['info'] = copy.deepcopy(self.dataset['info'])
-        # res.dataset['licenses'] = copy.deepcopy(self.dataset['licenses'])
-
-        print 'Loading and preparing results...     '
-        tic = time.time()
-
-        assert type(anns) == list, 'results in not an array of objects'
-        annsImgIds = [ann['image_id'] for ann in anns]
-        assert set(annsImgIds) == (set(annsImgIds) & set(self.getImgIds())), \
-               'Results do not correspond to current coco set'
-        if 'caption' in anns[0]:
-            imgIds = set([img['id'] for img in res.dataset['images']]) & set([ann['image_id'] for ann in anns])
-            res.dataset['images'] = [img for img in res.dataset['images'] if img['id'] in imgIds]
-            for id, ann in enumerate(anns):
-                ann['id'] = id+1
-        elif 'bbox' in anns[0] and not anns[0]['bbox'] == []:
-            res.dataset['categories'] = copy.deepcopy(self.dataset['categories'])
-            for id, ann in enumerate(anns):
-                bb = ann['bbox']
-                x1, x2, y1, y2 = [bb[0], bb[0]+bb[2], bb[1], bb[1]+bb[3]]
-                if not 'segmentation' in ann:
-                    ann['segmentation'] = [[x1, y1, x1, y2, x2, y2, x2, y1]]
-                ann['area'] = bb[2]*bb[3]
-                ann['id'] = id+1
-                ann['iscrowd'] = 0
-        elif 'segmentation' in anns[0]:
-            res.dataset['categories'] = copy.deepcopy(self.dataset['categories'])
-            for id, ann in enumerate(anns):
-                # now only support compressed RLE format as segmentation results
-                ann['area'] = mask.area([ann['segmentation']])[0]
-                if not 'bbox' in ann:
-                    ann['bbox'] = mask.toBbox([ann['segmentation']])[0]
-                ann['id'] = id+1
-                ann['iscrowd'] = 0
-        print 'DONE (t=%0.2fs)'%(time.time()- tic)
-
-        res.dataset['annotations'] = anns
-        res.createIndex()
-        return res
-
     def download( self, tarDir = None, imgIds = [] ):
         '''
         Download COCO images from mscoco.org server.
@@ -418,52 +373,53 @@ class COCO:
             if not os.path.exists(fname):
                 urllib.urlretrieve(img['coco_url'], fname)
             print 'downloaded %d/%d images (t=%.1fs)'%(i, N, time.time()- tic)
-   
+
     def process_dataset(self):
         for ann in self.dataset['annotations']:
-            q = ann['caption']
-            q = q.replace('.', ' .')
-            q = q.replace(',', ' , ')
-            q = q.replace(':', ' : ')
-            q = q.replace(';', ' ; ')
-            q = q.lower().split()
-            q = [x for x in q if len(x)>0]
+            q = ann['caption'].lower()
             if q[-1]!='.':
-                q.append('.')
-            ann['caption'] = ' '.join(q)
+                q = q + '.'
+            ann['caption'] = q
 
     def filter_by_cap_len(self, max_cap_len):
-        print("Removing the long captions...")
+        print("Filtering the captions by length...")
         keep_ann = {}
         keep_img = {}
-        for ann in self.dataset['annotations']:
-            if len(ann['caption'].split(' '))<=max_cap_len:
+        for ann in tqdm(self.dataset['annotations']):
+            if len(word_tokenize(ann['caption']))<=max_cap_len:
                 keep_ann[ann['id']] = keep_ann.get(ann['id'], 0) + 1
                 keep_img[ann['image_id']] = keep_img.get(ann['image_id'], 0) + 1
 
-        self.dataset['annotations'] = [ann for ann in self.dataset['annotations'] if keep_ann.get(ann['id'],0)>0]
-        self.dataset['images'] = [img for img in self.dataset['images'] if keep_img.get(img['id'],0)>0]
+        self.dataset['annotations'] = \
+            [ann for ann in self.dataset['annotations'] \
+            if keep_ann.get(ann['id'],0)>0]
+        self.dataset['images'] = \
+            [img for img in self.dataset['images'] \
+            if keep_img.get(img['id'],0)>0]
 
         self.createIndex()
 
     def filter_by_words(self, vocab):
-        print("Removing the captions containing the rare words...")
+        print("Filtering the captions by words...")
         keep_ann = {}
         keep_img = {}
-        for ann in self.dataset['annotations']:
+        for ann in tqdm(self.dataset['annotations']):
             keep_ann[ann['id']] = 1
-            words_in_ann = ann['caption'].split(' ')
+            words_in_ann = word_tokenize(ann['caption'])
             for word in words_in_ann:
                 if word not in vocab:
                     keep_ann[ann['id']] = 0
                     break
             keep_img[ann['image_id']] = keep_img.get(ann['image_id'], 0) + 1
 
-        self.dataset['annotations'] = [ann for ann in self.dataset['annotations'] if keep_ann.get(ann['id'],0)>0]
-        self.dataset['images'] = [img for img in self.dataset['images'] if keep_img.get(img['id'],0)>0]
+        self.dataset['annotations'] = \
+            [ann for ann in self.dataset['annotations'] \
+            if keep_ann.get(ann['id'],0)>0]
+        self.dataset['images'] = \
+            [img for img in self.dataset['images'] \
+            if keep_img.get(img['id'],0)>0]
 
         self.createIndex()
 
     def all_captions(self):
         return [ann['caption'] for ann_id, ann in self.anns.items()]
-

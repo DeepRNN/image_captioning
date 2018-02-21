@@ -1,583 +1,535 @@
-import math
-import os
 import tensorflow as tf
 import numpy as np
 
-from base_model import *
-from utils.nn import *
+from base_model import BaseModel
 
 class CaptionGenerator(BaseModel):
     def build(self):
         """ Build the model. """
-        with tf.variable_scope("CNN"):
-            self.build_cnn()
+        self.build_cnn()
+        self.build_rnn()
+        if self.is_train:
+            self.build_optimizer()
+            self.build_summary()
 
-        with tf.variable_scope("RNN"):
-            self.build_rnn()
-
-        if self.mode=="train":
-            with tf.variable_scope("Summary"):
-                self.build_summary()
-        
     def build_cnn(self):
         """ Build the CNN. """
-        print("Building the CNN part...")
-
-        if self.cnn_model=='vgg16':
+        print("Building the CNN...")
+        if self.config.cnn == 'vgg16':
             self.build_vgg16()
-        elif self.cnn_model=='resnet50':
-            self.build_resnet50()
-        elif self.cnn_model=='resnet101':
-            self.build_resnet101()
         else:
-            self.build_resnet152()
-
-        print("CNN part built.")
+            self.build_resnet50()
+        print("CNN built.")
 
     def build_vgg16(self):
         """ Build the VGG16 net. """
-        use_batch_norm = self.use_batch_norm
+        config = self.config
 
-        imgs = tf.placeholder(tf.float32, [self.batch_size]+self.img_shape)
-        is_train = tf.placeholder(tf.bool)
+        images = tf.placeholder(
+            dtype = tf.float32,
+            shape = [config.batch_size] + self.image_shape)
 
-        conv1_1_feats = convolution(imgs, 3, 3, 64, 1, 1, 'conv1_1')
-        conv1_1_feats = nonlinear(conv1_1_feats, 'relu')
-        conv1_2_feats = convolution(conv1_1_feats, 3, 3, 64, 1, 1, 'conv1_2')
-        conv1_2_feats = nonlinear(conv1_2_feats, 'relu')
-        pool1_feats = max_pool(conv1_2_feats, 2, 2, 2, 2, 'pool1')
+        conv1_1_feats = self.nn.conv2d(images, 64, name = 'conv1_1')
+        conv1_2_feats = self.nn.conv2d(conv1_1_feats, 64, name = 'conv1_2')
+        pool1_feats = self.nn.max_pool2d(conv1_2_feats, name = 'pool1')
 
-        conv2_1_feats = convolution(pool1_feats, 3, 3, 128, 1, 1, 'conv2_1')
-        conv2_1_feats = nonlinear(conv2_1_feats, 'relu')
-        conv2_2_feats = convolution(conv2_1_feats, 3, 3, 128, 1, 1, 'conv2_2')
-        conv2_2_feats = nonlinear(conv2_2_feats, 'relu')
-        pool2_feats = max_pool(conv2_2_feats, 2, 2, 2, 2, 'pool2')
+        conv2_1_feats = self.nn.conv2d(pool1_feats, 128, name = 'conv2_1')
+        conv2_2_feats = self.nn.conv2d(conv2_1_feats, 128, name = 'conv2_2')
+        pool2_feats = self.nn.max_pool2d(conv2_2_feats, name = 'pool2')
 
-        conv3_1_feats = convolution(pool2_feats, 3, 3, 256, 1, 1, 'conv3_1')
-        conv3_1_feats = nonlinear(conv3_1_feats, 'relu')
-        conv3_2_feats = convolution(conv3_1_feats, 3, 3, 256, 1, 1, 'conv3_2')
-        conv3_2_feats = nonlinear(conv3_2_feats, 'relu')
-        conv3_3_feats = convolution(conv3_2_feats, 3, 3, 256, 1, 1, 'conv3_3')
-        conv3_3_feats = nonlinear(conv3_3_feats, 'relu')
-        pool3_feats = max_pool(conv3_3_feats, 2, 2, 2, 2, 'pool3')
+        conv3_1_feats = self.nn.conv2d(pool2_feats, 256, name = 'conv3_1')
+        conv3_2_feats = self.nn.conv2d(conv3_1_feats, 256, name = 'conv3_2')
+        conv3_3_feats = self.nn.conv2d(conv3_2_feats, 256, name = 'conv3_3')
+        pool3_feats = self.nn.max_pool2d(conv3_3_feats, name = 'pool3')
 
-        conv4_1_feats = convolution(pool3_feats, 3, 3, 512, 1, 1, 'conv4_1')
-        conv4_1_feats = nonlinear(conv4_1_feats, 'relu')
-        conv4_2_feats = convolution(conv4_1_feats, 3, 3, 512, 1, 1, 'conv4_2')
-        conv4_2_feats = nonlinear(conv4_2_feats, 'relu')
-        conv4_3_feats = convolution(conv4_2_feats, 3, 3, 512, 1, 1, 'conv4_3')
-        conv4_3_feats = nonlinear(conv4_3_feats, 'relu')
-        pool4_feats = max_pool(conv4_3_feats, 2, 2, 2, 2, 'pool4')
+        conv4_1_feats = self.nn.conv2d(pool3_feats, 512, name = 'conv4_1')
+        conv4_2_feats = self.nn.conv2d(conv4_1_feats, 512, name = 'conv4_2')
+        conv4_3_feats = self.nn.conv2d(conv4_2_feats, 512, name = 'conv4_3')
+        pool4_feats = self.nn.max_pool2d(conv4_3_feats, name = 'pool4')
 
-        conv5_1_feats = convolution(pool4_feats, 3, 3, 512, 1, 1, 'conv5_1')
-        conv5_1_feats = nonlinear(conv5_1_feats, 'relu')
-        conv5_2_feats = convolution(conv5_1_feats, 3, 3, 512, 1, 1, 'conv5_2')
-        conv5_2_feats = nonlinear(conv5_2_feats,  'relu')
-        conv5_3_feats = convolution(conv5_2_feats, 3, 3, 512, 1, 1, 'conv5_3')
-        conv5_3_feats = nonlinear(conv5_3_feats, 'relu')
+        conv5_1_feats = self.nn.conv2d(pool4_feats, 512, name = 'conv5_1')
+        conv5_2_feats = self.nn.conv2d(conv5_1_feats, 512, name = 'conv5_2')
+        conv5_3_feats = self.nn.conv2d(conv5_2_feats, 512, name = 'conv5_3')
 
-        conv5_3_feats_flat = tf.reshape(conv5_3_feats, [self.batch_size, 196, 512])
-        self.conv_feats = conv5_3_feats_flat
-        self.conv_feat_shape = [196, 512]
-        self.num_ctx = 196                   
+        reshaped_conv5_3_feats = tf.reshape(conv5_3_feats,
+                                            [config.batch_size, 196, 512])
+
+        self.conv_feats = reshaped_conv5_3_feats
+        self.num_ctx = 196
         self.dim_ctx = 512
-
-        self.imgs = imgs
-        self.is_train = is_train
-
-    def basic_block(self, input_feats, name1, name2, is_train, use_batch_norm, c, s=2):
-        """ A basic block of ResNets. """
-        branch1_feats = convolution_no_bias(input_feats, 1, 1, 4*c, s, s, name1+'_branch1')
-        branch1_feats = batch_norm(branch1_feats, name2+'_branch1', is_train, use_batch_norm)
-
-        branch2a_feats = convolution_no_bias(input_feats, 1, 1, c, s, s, name1+'_branch2a')
-        branch2a_feats = batch_norm(branch2a_feats, name2+'_branch2a', is_train, use_batch_norm)
-        branch2a_feats = nonlinear(branch2a_feats, 'relu')
-
-        branch2b_feats = convolution_no_bias(branch2a_feats, 3, 3, c, 1, 1, name1+'_branch2b')
-        branch2b_feats = batch_norm(branch2b_feats, name2+'_branch2b', is_train, use_batch_norm)
-        branch2b_feats = nonlinear(branch2b_feats, 'relu')
-
-        branch2c_feats = convolution_no_bias(branch2b_feats, 1, 1, 4*c, 1, 1, name1+'_branch2c')
-        branch2c_feats = batch_norm(branch2c_feats, name2+'_branch2c', is_train, use_batch_norm)
-
-        output_feats = branch1_feats + branch2c_feats
-        output_feats = nonlinear(output_feats, 'relu')
-        return output_feats
-
-    def basic_block2(self, input_feats, name1, name2, is_train, use_batch_norm, c):
-        """ Another basic block of ResNets. """
-        branch2a_feats = convolution_no_bias(input_feats, 1, 1, c, 1, 1, name1+'_branch2a')
-        branch2a_feats = batch_norm(branch2a_feats, name2+'_branch2a', is_train, use_batch_norm)
-        branch2a_feats = nonlinear(branch2a_feats, 'relu')
-
-        branch2b_feats = convolution_no_bias(branch2a_feats, 3, 3, c, 1, 1, name1+'_branch2b')
-        branch2b_feats = batch_norm(branch2b_feats, name2+'_branch2b', is_train, use_batch_norm)
-        branch2b_feats = nonlinear(branch2b_feats, 'relu')
-
-        branch2c_feats = convolution_no_bias(branch2b_feats, 1, 1, 4*c, 1, 1, name1+'_branch2c')
-        branch2c_feats = batch_norm(branch2c_feats, name2+'_branch2c', is_train, use_batch_norm)
-
-        output_feats = input_feats + branch2c_feats
-        output_feats = nonlinear(output_feats, 'relu')
-        return output_feats
+        self.images = images
 
     def build_resnet50(self):
-        """ Build the ResNet50 net. """
-        use_batch_norm = self.use_batch_norm
+        """ Build the ResNet50. """
+        config = self.config
 
-        imgs = tf.placeholder(tf.float32, [self.batch_size]+self.img_shape)
-        is_train = tf.placeholder(tf.bool)
+        images = tf.placeholder(
+            dtype = tf.float32,
+            shape = [config.batch_size] + self.image_shape)
 
-        conv1_feats = convolution(imgs, 7, 7, 64, 2, 2, 'conv1')
-        conv1_feats = batch_norm(conv1_feats, 'bn_conv1', is_train, use_batch_norm)
-        conv1_feats = nonlinear(conv1_feats, 'relu')
-        pool1_feats = max_pool(conv1_feats, 3, 3, 2, 2, 'pool1')
+        conv1_feats = self.nn.conv2d(images,
+                                  filters = 64,
+                                  kernel_size = (7, 7),
+                                  strides = (2, 2),
+                                  activation = None,
+                                  name = 'conv1')
+        conv1_feats = self.nn.batch_norm(conv1_feats, 'bn_conv1')
+        conv1_feats = tf.nn.relu(conv1_feats)
+        pool1_feats = self.nn.max_pool2d(conv1_feats,
+                                      pool_size = (3, 3),
+                                      strides = (2, 2),
+                                      name = 'pool1')
 
-        res2a_feats = self.basic_block(pool1_feats, 'res2a', 'bn2a', is_train, use_batch_norm, 64, 1)
-        res2b_feats = self.basic_block2(res2a_feats, 'res2b', 'bn2b', is_train, use_batch_norm, 64)
-        res2c_feats = self.basic_block2(res2b_feats, 'res2c', 'bn2c', is_train, use_batch_norm, 64)
-  
-        res3a_feats = self.basic_block(res2c_feats, 'res3a', 'bn3a', is_train, use_batch_norm, 128)
-        res3b_feats = self.basic_block2(res3a_feats, 'res3b', 'bn3b', is_train, use_batch_norm, 128)
-        res3c_feats = self.basic_block2(res3b_feats, 'res3c', 'bn3c', is_train, use_batch_norm, 128)
-        res3d_feats = self.basic_block2(res3c_feats, 'res3d', 'bn3d', is_train, use_batch_norm, 128)
+        res2a_feats = self.resnet_block(pool1_feats, 'res2a', 'bn2a', 64, 1)
+        res2b_feats = self.resnet_block2(res2a_feats, 'res2b', 'bn2b', 64)
+        res2c_feats = self.resnet_block2(res2b_feats, 'res2c', 'bn2c', 64)
 
-        res4a_feats = self.basic_block(res3d_feats, 'res4a', 'bn4a', is_train, use_batch_norm, 256)
-        res4b_feats = self.basic_block2(res4a_feats, 'res4b', 'bn4b', is_train, use_batch_norm, 256)
-        res4c_feats = self.basic_block2(res4b_feats, 'res4c', 'bn4c', is_train, use_batch_norm, 256)
-        res4d_feats = self.basic_block2(res4c_feats, 'res4d', 'bn4d', is_train, use_batch_norm, 256)
-        res4e_feats = self.basic_block2(res4d_feats, 'res4e', 'bn4e', is_train, use_batch_norm, 256)
-        res4f_feats = self.basic_block2(res4e_feats, 'res4f', 'bn4f', is_train, use_batch_norm, 256)
+        res3a_feats = self.resnet_block(res2c_feats, 'res3a', 'bn3a', 128)
+        res3b_feats = self.resnet_block2(res3a_feats, 'res3b', 'bn3b', 128)
+        res3c_feats = self.resnet_block2(res3b_feats, 'res3c', 'bn3c', 128)
+        res3d_feats = self.resnet_block2(res3c_feats, 'res3d', 'bn3d', 128)
 
-        res5a_feats = self.basic_block(res4f_feats, 'res5a', 'bn5a', is_train, use_batch_norm, 512)
-        res5b_feats = self.basic_block2(res5a_feats, 'res5b', 'bn5b', is_train, use_batch_norm, 512)
-        res5c_feats = self.basic_block2(res5b_feats, 'res5c', 'bn5c', is_train, use_batch_norm, 512)
+        res4a_feats = self.resnet_block(res3d_feats, 'res4a', 'bn4a', 256)
+        res4b_feats = self.resnet_block2(res4a_feats, 'res4b', 'bn4b', 256)
+        res4c_feats = self.resnet_block2(res4b_feats, 'res4c', 'bn4c', 256)
+        res4d_feats = self.resnet_block2(res4c_feats, 'res4d', 'bn4d', 256)
+        res4e_feats = self.resnet_block2(res4d_feats, 'res4e', 'bn4e', 256)
+        res4f_feats = self.resnet_block2(res4e_feats, 'res4f', 'bn4f', 256)
 
-        res5c_feats_flat = tf.reshape(res5c_feats, [self.batch_size, 49, 2048])
-        self.conv_feats = res5c_feats_flat
-        self.conv_feat_shape = [49, 2048]
-        self.num_ctx = 49                   
+        res5a_feats = self.resnet_block(res4f_feats, 'res5a', 'bn5a', 512)
+        res5b_feats = self.resnet_block2(res5a_feats, 'res5b', 'bn5b', 512)
+        res5c_feats = self.resnet_block2(res5b_feats, 'res5c', 'bn5c', 512)
+
+        reshaped_res5c_feats = tf.reshape(res5c_feats,
+                                         [config.batch_size, 49, 2048])
+
+        self.conv_feats = reshaped_res5c_feats
+        self.num_ctx = 49
         self.dim_ctx = 2048
+        self.images = images
 
-        self.imgs = imgs
-        self.is_train = is_train
+    def resnet_block(self, inputs, name1, name2, c, s=2):
+        """ A basic block of ResNet. """
+        branch1_feats = self.nn.conv2d(inputs,
+                                    filters = 4*c,
+                                    kernel_size = (1, 1),
+                                    strides = (s, s),
+                                    activation = None,
+                                    use_bias = False,
+                                    name = name1+'_branch1')
+        branch1_feats = self.nn.batch_norm(branch1_feats, name2+'_branch1')
 
-    def build_resnet101(self):
-        """ Build the ResNet101 net. """
-        use_batch_norm = self.use_batch_norm
+        branch2a_feats = self.nn.conv2d(inputs,
+                                     filters = c,
+                                     kernel_size = (1, 1),
+                                     strides = (s, s),
+                                     activation = None,
+                                     use_bias = False,
+                                     name = name1+'_branch2a')
+        branch2a_feats = self.nn.batch_norm(branch2a_feats, name2+'_branch2a')
+        branch2a_feats = tf.nn.relu(branch2a_feats)
 
-        imgs = tf.placeholder(tf.float32, [self.batch_size]+self.img_shape)
-        is_train = tf.placeholder(tf.bool)
+        branch2b_feats = self.nn.conv2d(branch2a_feats,
+                                     filters = c,
+                                     kernel_size = (3, 3),
+                                     strides = (1, 1),
+                                     activation = None,
+                                     use_bias = False,
+                                     name = name1+'_branch2b')
+        branch2b_feats = self.nn.batch_norm(branch2b_feats, name2+'_branch2b')
+        branch2b_feats = tf.nn.relu(branch2b_feats)
 
-        conv1_feats = convolution(imgs, 7, 7, 64, 2, 2, 'conv1')
-        conv1_feats = batch_norm(conv1_feats, 'bn_conv1', is_train, use_batch_norm)
-        conv1_feats = nonlinear(conv1_feats, 'relu')
-        pool1_feats = max_pool(conv1_feats, 3, 3, 2, 2, 'pool1')
+        branch2c_feats = self.nn.conv2d(branch2b_feats,
+                                     filters = 4*c,
+                                     kernel_size = (1, 1),
+                                     strides = (1, 1),
+                                     activation = None,
+                                     use_bias = False,
+                                     name = name1+'_branch2c')
+        branch2c_feats = self.nn.batch_norm(branch2c_feats, name2+'_branch2c')
 
-        res2a_feats = self.basic_block(pool1_feats, 'res2a', 'bn2a', is_train, use_batch_norm, 64, 1)
-        res2b_feats = self.basic_block2(res2a_feats, 'res2b', 'bn2b', is_train, use_batch_norm, 64)
-        res2c_feats = self.basic_block2(res2b_feats, 'res2c', 'bn2c', is_train, use_batch_norm, 64)
-  
-        res3a_feats = self.basic_block(res2c_feats, 'res3a', 'bn3a', is_train, use_batch_norm, 128)       
-        temp = res3a_feats
-        for i in range(1, 4):
-            temp = self.basic_block2(temp, 'res3b'+str(i), 'bn3b'+str(i), is_train, use_batch_norm, 128)
-        res3b3_feats = temp
- 
-        res4a_feats = self.basic_block(res3b3_feats, 'res4a', 'bn4a', is_train, use_batch_norm, 256)
-        temp = res4a_feats
-        for i in range(1, 23):
-            temp = self.basic_block2(temp, 'res4b'+str(i), 'bn4b'+str(i), is_train, use_batch_norm, 256)
-        res4b22_feats = temp
+        outputs = branch1_feats + branch2c_feats
+        outputs = tf.nn.relu(outputs)
+        return outputs
 
-        res5a_feats = self.basic_block(res4b22_feats, 'res5a', 'bn5a', is_train, use_batch_norm, 512)
-        res5b_feats = self.basic_block2(res5a_feats, 'res5b', 'bn5b', is_train, use_batch_norm, 512)
-        res5c_feats = self.basic_block2(res5b_feats, 'res5c', 'bn5c', is_train, use_batch_norm, 512)
+    def resnet_block2(self, inputs, name1, name2, c):
+        """ Another basic block of ResNet. """
+        branch2a_feats = self.nn.conv2d(inputs,
+                                     filters = c,
+                                     kernel_size = (1, 1),
+                                     strides = (1, 1),
+                                     activation = None,
+                                     use_bias = False,
+                                     name = name1+'_branch2a')
+        branch2a_feats = self.nn.batch_norm(branch2a_feats, name2+'_branch2a')
+        branch2a_feats = tf.nn.relu(branch2a_feats)
 
-        res5c_feats_flat = tf.reshape(res5c_feats, [self.batch_size, 49, 2048])
-        self.conv_feats = res5c_feats_flat
-        self.conv_feat_shape = [49, 2048]
-        self.num_ctx = 49                   
-        self.dim_ctx = 2048
+        branch2b_feats = self.nn.conv2d(branch2a_feats,
+                                     filters = c,
+                                     kernel_size = (3, 3),
+                                     strides = (1, 1),
+                                     activation = None,
+                                     use_bias = False,
+                                     name = name1+'_branch2b')
+        branch2b_feats = self.nn.batch_norm(branch2b_feats, name2+'_branch2b')
+        branch2b_feats = tf.nn.relu(branch2b_feats)
 
-        self.imgs = imgs
-        self.is_train = is_train
+        branch2c_feats = self.nn.conv2d(branch2b_feats,
+                                     filters = 4*c,
+                                     kernel_size = (1, 1),
+                                     strides = (1, 1),
+                                     activation = None,
+                                     use_bias = False,
+                                     name = name1+'_branch2c')
+        branch2c_feats = self.nn.batch_norm(branch2c_feats, name2+'_branch2c')
 
-    def build_resnet152(self):
-        """ Build the ResNet152 net. """
-        use_batch_norm = self.use_batch_norm
-
-        imgs = tf.placeholder(tf.float32, [self.batch_size]+self.img_shape)
-        is_train = tf.placeholder(tf.bool)
-
-        conv1_feats = convolution(imgs, 7, 7, 64, 2, 2, 'conv1')
-        conv1_feats = batch_norm(conv1_feats, 'bn_conv1', is_train, use_batch_norm)
-        conv1_feats = nonlinear(conv1_feats, 'relu')
-        pool1_feats = max_pool(conv1_feats, 3, 3, 2, 2, 'pool1')
-
-        res2a_feats = self.basic_block(pool1_feats, 'res2a', 'bn2a', is_train, use_batch_norm, 64, 1)
-        res2b_feats = self.basic_block2(res2a_feats, 'res2b', 'bn2b', is_train, use_batch_norm, 64)
-        res2c_feats = self.basic_block2(res2b_feats, 'res2c', 'bn2c', is_train, use_batch_norm, 64)
-  
-        res3a_feats = self.basic_block(res2c_feats, 'res3a', 'bn3a', is_train, use_batch_norm, 128)       
-        temp = res3a_feats
-        for i in range(1, 8):
-            temp = self.basic_block2(temp, 'res3b'+str(i), 'bn3b'+str(i), is_train, use_batch_norm, 128)
-        res3b7_feats = temp
- 
-        res4a_feats = self.basic_block(res3b7_feats, 'res4a', 'bn4a', is_train, use_batch_norm, 256)
-        temp = res4a_feats
-        for i in range(1, 36):
-            temp = self.basic_block2(temp, 'res4b'+str(i), 'bn4b'+str(i), is_train, use_batch_norm, 256)
-        res4b35_feats = temp
-
-        res5a_feats = self.basic_block(res4b35_feats, 'res5a', 'bn5a', is_train, use_batch_norm, 512)
-        res5b_feats = self.basic_block2(res5a_feats, 'res5b', 'bn5b', is_train, use_batch_norm, 512)
-        res5c_feats = self.basic_block2(res5b_feats, 'res5c', 'bn5c', is_train, use_batch_norm, 512)
-
-        res5c_feats_flat = tf.reshape(res5c_feats, [self.batch_size, 49, 2048])
-        self.conv_feats = res5c_feats_flat
-        self.conv_feat_shape = [49, 2048]
-        self.num_ctx = 49                   
-        self.dim_ctx = 2048
-
-        self.imgs = imgs
-        self.is_train = is_train
+        outputs = inputs + branch2c_feats
+        outputs = tf.nn.relu(outputs)
+        return outputs
 
     def build_rnn(self):
         """ Build the RNN. """
-        if self.mode=="train" or self.beam_size==1:
-            self.build_rnn_greedy()
+        print("Building the RNN...")
+        config = self.config
+
+        # Setup the placeholders
+        if self.is_train:
+            contexts = self.conv_feats
+            sentences = tf.placeholder(
+                dtype = tf.int32,
+                shape = [config.batch_size, config.max_caption_length])
+            masks = tf.placeholder(
+                dtype = tf.float32,
+                shape = [config.batch_size, config.max_caption_length])
         else:
-            self.build_rnn_beam_search()        
+            contexts = tf.placeholder(
+                dtype = tf.float32,
+                shape = [config.batch_size, self.num_ctx, self.dim_ctx])
+            last_memory = tf.placeholder(
+                dtype = tf.float32,
+                shape = [config.batch_size, config.num_lstm_units])
+            last_output = tf.placeholder(
+                dtype = tf.float32,
+                shape = [config.batch_size, config.num_lstm_units])
+            last_word = tf.placeholder(
+                dtype = tf.int32,
+                shape = [config.batch_size])
 
-    def build_rnn_greedy(self):
-        """ Build the RNN using the greedy strategy. """
-        print("Building the RNN part...")
-        params = self.params
+        # Setup the word embedding
+        with tf.variable_scope("word_embedding"):
+            embedding_matrix = tf.get_variable(
+                name = 'weights',
+                shape = [config.vocabulary_size, config.dim_embedding],
+                initializer = self.nn.fc_kernel_initializer,
+                regularizer = self.nn.fc_kernel_regularizer,
+                trainable = self.is_train)
 
-        contexts = self.conv_feats
+        # Setup the LSTM
+        lstm = tf.nn.rnn_cell.LSTMCell(
+            config.num_lstm_units,
+            initializer = self.nn.fc_kernel_initializer)
+        if self.is_train:
+            lstm = tf.nn.rnn_cell.DropoutWrapper(
+                lstm,
+                input_keep_prob = 1.0-config.lstm_drop_rate,
+                output_keep_prob = 1.0-config.lstm_drop_rate,
+                state_keep_prob = 1.0-config.lstm_drop_rate)
 
-        sentences = tf.placeholder(tf.int32, [self.batch_size, self.max_sent_len])
-        masks = tf.placeholder(tf.float32, [self.batch_size, self.max_sent_len])        
-        weights = tf.placeholder(tf.float32, [self.batch_size, self.max_sent_len])        
+        # Initialize the LSTM using the mean context
+        with tf.variable_scope("initialize"):
+            context_mean = tf.reduce_mean(self.conv_feats, axis = 1)
+            initial_memory, initial_output = self.initialize(context_mean)
+            initial_state = initial_memory, initial_output
 
-        # initialize the word embedding
-        idx2vec = np.array([self.word_table.word2vec[self.word_table.idx2word[i]] 
-                           for i in range(self.num_words)])
-        emb_w = weight('emb_weights', [self.num_words, self.dim_embed], init_val=idx2vec)
-
-        # initialize the decoding layer
-        dec_w = weight('dec_weights', [self.dim_dec, self.num_words])  
-        if self.init_dec_bias: 
-            dec_b = bias('dec_biases', [self.num_words], init_val=self.word_table.word_freq)
+        # Prepare to run
+        predictions = []
+        if self.is_train:
+            alphas = []
+            cross_entropies = []
+            predictions_correct = []
+            num_steps = config.max_caption_length
+            last_output = initial_output
+            last_memory = initial_memory
+            last_word = tf.zeros([config.batch_size], tf.int32)
         else:
-            dec_b = bias('dec_biases', [self.num_words], init_val=0.0)
- 
-        # compute the mean context
-        context_mean = tf.reduce_mean(contexts, 1)
-       
-        # initialize the LSTM
-        lstm = tf.nn.rnn_cell.LSTMCell(self.dim_hidden, initializer=tf.random_normal_initializer(stddev=0.033)) 
-        lstm = tf.nn.rnn_cell.DropoutWrapper(lstm, self.lstm_keep_prob, self.lstm_keep_prob, self.lstm_keep_prob)
+            num_steps = 1
+        last_state = last_memory, last_output
 
-        memory, output = self.init_lstm(context_mean)
-        state = memory, output
-
-        cross_entropy_loss = 0.0
-        results = []
-        scores = []
-
-        alphas = []        
-        cross_entropies = []
-        num_correct_words = 0.0
-
-        # Generate the words one by one 
-        for idx in range(self.max_sent_len):
-
+        # Generate the words one by one
+        for idx in range(num_steps):
             # Attention mechanism
-            alpha = self.attend(contexts, output)     
-                                                                
-            masked_alpha = alpha * tf.tile(tf.expand_dims(masks[:, idx], 1), [1, self.num_ctx])        
-            alphas.append(tf.reshape(masked_alpha, [-1])) 
+            with tf.variable_scope("attend"):
+                alpha = self.attend(contexts, last_output)
+                context = tf.reduce_sum(contexts*tf.expand_dims(alpha, 2),
+                                        axis = 1)
+                if self.is_train:
+                    tiled_masks = tf.tile(tf.expand_dims(masks[:, idx], 1),
+                                         [1, self.num_ctx])
+                    masked_alpha = alpha * tiled_masks
+                    alphas.append(tf.reshape(masked_alpha, [-1]))
 
-            if idx == 0:   
-                word_emb = tf.zeros([self.batch_size, self.dim_embed])
-                weighted_context = tf.identity(context_mean)
-            else:
-                word_emb = tf.cond(self.is_train, 
-                                   lambda: tf.nn.embedding_lookup(emb_w, sentences[:, idx-1]), 
-                                   lambda: word_emb)
-                weighted_context = tf.reduce_sum(contexts * tf.expand_dims(alpha, 2), 1)
-            
-            # Apply the LSTM
-            with tf.variable_scope("LSTM"):
-                output, state = lstm(tf.concat([weighted_context, word_emb], 1), state)
-            
-            # Compute the logits
-            expanded_output = tf.concat([output, weighted_context, word_emb], 1)
+            # Embed the last word
+            with tf.variable_scope("word_embedding"):
+                word_embed = tf.nn.embedding_lookup(embedding_matrix,
+                                                    last_word)
+           # Apply the LSTM
+            with tf.variable_scope("lstm"):
+                current_input = tf.concat([context, word_embed], 1)
+                output, state = lstm(current_input, last_state)
+                memory, _ = state
 
-            logits1 = fully_connected(expanded_output, self.dim_dec, 'dec_fc')
-            logits1 = nonlinear(logits1, 'tanh')
-            logits1 = dropout(logits1, self.fc_keep_prob, self.is_train)
+            # Decode the expanded output of LSTM into a word
+            with tf.variable_scope("decode"):
+                expanded_output = tf.concat([output,
+                                             context,
+                                             word_embed],
+                                             axis = 1)
+                expanded_output = self.nn.dropout(expanded_output)
+                logits = self.decode(expanded_output)
+                probs = tf.nn.softmax(logits)
+                prediction = tf.argmax(logits, 1)
+                predictions.append(prediction)
 
-            logits2 = tf.nn.xw_plus_b(logits1, dec_w, dec_b)
+            # Compute the loss for this step, if necessary
+            if self.is_train:
+                cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
+                    labels = sentences[:, idx],
+                    logits = logits)
+                masked_cross_entropy = cross_entropy * masks[:, idx]
+                cross_entropies.append(masked_cross_entropy)
 
-            # Update the loss
-            cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=sentences[:, idx], 
-                                                                           logits=logits2)
-            masked_cross_entropy = cross_entropy * masks[:, idx]
-            cross_entropy_loss += tf.reduce_sum(masked_cross_entropy*weights[:, idx])
-            cross_entropies.append(masked_cross_entropy)
+                ground_truth = tf.cast(sentences[:, idx], tf.int64)
+                prediction_correct = tf.where(
+                    tf.equal(prediction, ground_truth),
+                    tf.cast(masks[:, idx], tf.float32),
+                    tf.cast(tf.zeros_like(prediction), tf.float32))
+                predictions_correct.append(prediction_correct)
 
-            # Update the result
-            max_prob_word = tf.argmax(logits2, 1)
-            results.append(max_prob_word)
+                last_output = output
+                last_memory = memory
+                last_state = state
+                last_word = sentences[:, idx]
 
-            is_word_correct = tf.where(tf.equal(max_prob_word, tf.cast(sentences[:, idx], tf.int64)), 
-                                       tf.cast(masks[:, idx], tf.float32), 
-                                       tf.cast(tf.zeros_like(max_prob_word), tf.float32))
-            num_correct_words += tf.reduce_sum(is_word_correct)  
+            tf.get_variable_scope().reuse_variables()
 
-            probs = tf.nn.softmax(logits2) 
-            score = tf.log(tf.reduce_max(probs, 1)) 
-            scores.append(score) 
-            
-            # Prepare for the next iteration
-            word_emb = tf.cond(self.is_train, lambda: word_emb, lambda: tf.nn.embedding_lookup(emb_w, max_prob_word))          
-            tf.get_variable_scope().reuse_variables()                           
+        # Compute the final loss, if necessary
+        if self.is_train:
+            cross_entropies = tf.stack(cross_entropies, axis = 1)
+            cross_entropy_loss = tf.reduce_sum(cross_entropies) \
+                                 / tf.reduce_sum(masks)
 
-        # Get the final result
-        results = tf.stack(results, axis=1)
-        scores = tf.stack(scores, axis=1)
+            alphas = tf.stack(alphas, axis = 1)
+            alphas = tf.reshape(alphas, [config.batch_size, self.num_ctx, -1])
+            attentions = tf.reduce_sum(alphas, axis = 2)
+            diffs = tf.ones_like(attentions) - attentions
+            attention_loss = config.attention_loss_factor \
+                             * tf.nn.l2_loss(diffs) \
+                             / (config.batch_size * self.num_ctx)
 
-        alphas = tf.stack(alphas, axis=1)
-        alphas = tf.reshape(alphas, [self.batch_size, self.num_ctx, -1])
-        sum_alpha = tf.reduce_sum(alphas, axis=2)
+            reg_loss = tf.losses.get_regularization_loss()
 
-        cross_entropies = tf.stack(cross_entropies, axis=1) 
-        num_correct_words = num_correct_words / tf.reduce_sum(masks)
+            total_loss = cross_entropy_loss + attention_loss + reg_loss
 
-        # Compute the final loss 
-        cross_entropy_loss = cross_entropy_loss / tf.reduce_sum(masks*weights)
+            predictions_correct = tf.stack(predictions_correct, axis = 1)
+            accuracy = tf.reduce_sum(predictions_correct) \
+                       / tf.reduce_sum(masks)
 
-        avg_alpha = tf.reduce_sum(masks, axis=1) / self.num_ctx
-        small_alpha_diff = tf.nn.relu(tf.tile(tf.expand_dims(avg_alpha*0.6, 1), [1, self.num_ctx])-sum_alpha)
-        large_alpha_diff = tf.nn.relu(sum_alpha-tf.tile(tf.expand_dims(avg_alpha*6, 1), [1, self.num_ctx]))
-        attention_loss = tf.nn.l2_loss(small_alpha_diff) + tf.nn.l2_loss(large_alpha_diff) 
-        attention_loss = params.att_coeff * attention_loss / self.batch_size 
-
-        if self.train_cnn:
-            g_vars = tf.trainable_variables()
+        self.contexts = contexts
+        if self.is_train:
+            self.sentences = sentences
+            self.masks = masks
+            self.total_loss = total_loss
+            self.cross_entropy_loss = cross_entropy_loss
+            self.attention_loss = attention_loss
+            self.reg_loss = reg_loss
+            self.accuracy = accuracy
+            self.attentions = attentions
         else:
-            g_vars = [tf_var for tf_var in tf.trainable_variables() if "CNN" not in tf_var.name]
+            self.initial_memory = initial_memory
+            self.initial_output = initial_output
+            self.last_memory = last_memory
+            self.last_output = last_output
+            self.last_word = last_word
+            self.memory = memory
+            self.output = output
+            self.probs = probs
 
-        l2_loss = params.weight_decay * sum(tf.nn.l2_loss(tf_var) for tf_var in g_vars 
-                                                                  if ("bias" not in tf_var.name and
-                                                                      "offset" not in tf_var.name and 
-                                                                      "scale" not in tf_var.name)) 
+        print("RNN built.")
 
-        loss = cross_entropy_loss + attention_loss + l2_loss
+    def initialize(self, context_mean):
+        """ Initialize the LSTM using the mean context. """
+        config = self.config
+        if config.num_initalize_layers == 1:
+            # use 1 fc layer to initialize
+            memory = self.nn.dense(context_mean,
+                                   units = config.num_lstm_units,
+                                   activation = None,
+                                   name = 'fc_a')
+            output = self.nn.dense(context_mean,
+                                   units = config.num_lstm_units,
+                                   activation = None,
+                                   name = 'fc_b')
+        else:
+            # use 2 fc layers to initialize
+            temp1 = self.nn.dense(context_mean,
+                                  units = config.dim_initalize_layer,
+                                  activation = tf.tanh,
+                                  name = 'fc_a1')
+            temp1 = self.nn.dropout(temp1)
+            memory = self.nn.dense(temp1,
+                                   units = config.num_lstm_units,
+                                   activation = None,
+                                   name = 'fc_a2')
 
-        # Build the solver 
-        with tf.variable_scope("Solver", reuse=tf.AUTO_REUSE):
-            learning_rate = tf.train.exponential_decay(params.learning_rate, 
-                                                   self.global_step,
-                                                   10000, 
-                                                   0.9, 
-                                                   staircase=True)
-
-            if params.solver=="momentum":
-                solver = tf.train.MomentumOptimizer(learning_rate, params.momentum)
-            elif params.solver=="rmsprop":
-                solver = tf.train.RMSPropOptimizer(learning_rate, params.decay, params.momentum)
-            else:
-                solver = tf.train.GradientDescentOptimizer(learning_rate)
-
-            gs = tf.gradients(loss, g_vars)
-            gs, _ = tf.clip_by_global_norm(gs, 10.0)
-            opt_op = solver.apply_gradients(zip(gs, g_vars), global_step=self.global_step)
-
-        self.sentences = sentences
-        self.masks = masks
-        self.weights = weights
-
-        self.results = results
-        self.scores = scores
-        self.alphas = alphas
-
-        self.sum_alpha = sum_alpha
-        self.cross_entropies = cross_entropies
-        self.num_correct_words = num_correct_words
-
-        self.loss = loss
-        self.cross_entropy_loss = cross_entropy_loss
-        self.attention_loss = attention_loss
-        self.l2_loss = l2_loss
-
-        self.opt_op = opt_op
-        self.g_vars = g_vars
-        self.gs = gs
-        
-        print("RNN part built.")
-
-    def init_lstm(self, context_mean):
-        """Initialize the LSTM using the mean context"""
-        temp = context_mean
-        for i in range(self.num_init_layers):
-            temp = fully_connected(temp, self.dim_hidden, 'init_lstm_fc1'+str(i))
-            temp = batch_norm(temp, 'init_lstm_bn1'+str(i), self.is_train, self.use_batch_norm)
-            temp = nonlinear(temp, 'tanh')
-        memory = tf.identity(temp)
- 
-        temp = context_mean
-        for i in range(self.num_init_layers):
-            temp = fully_connected(temp, self.dim_hidden, 'init_lstm_fc2'+str(i))
-            temp = batch_norm(temp, 'init_lstm_bn2'+str(i), self.is_train, self.use_batch_norm)
-            temp = nonlinear(temp, 'tanh')
-        output = tf.identity(temp)
-
+            temp2 = self.nn.dense(context_mean,
+                                  units = config.dim_initalize_layer,
+                                  activation = tf.tanh,
+                                  name = 'fc_b1')
+            temp2 = self.nn.dropout(temp2)
+            output = self.nn.dense(temp2,
+                                   units = config.num_lstm_units,
+                                   activation = None,
+                                   name = 'fc_b2')
         return memory, output
 
     def attend(self, contexts, output):
-        """Attention Mechanism"""
-        context_flat = tf.reshape(contexts, [-1, self.dim_ctx]) 
-
-        context_encode1 = fully_connected(context_flat, self.dim_ctx, 'att_fc11') 
-        context_encode1 = batch_norm(context_encode1, 'att_bn11', self.is_train, self.use_batch_norm) 
-
-        context_encode2 = fully_connected_no_bias(output, self.dim_ctx, 'att_fc12') 
-        context_encode2 = batch_norm(context_encode2, 'att_bn12', self.is_train, self.use_batch_norm) 
-        context_encode2 = tf.tile(tf.expand_dims(context_encode2, 1), [1, self.num_ctx, 1])                 
-        context_encode2 = tf.reshape(context_encode2, [-1, self.dim_ctx])    
-
-        context_encode = context_encode1 + context_encode2  
-        context_encode = nonlinear(context_encode, 'tanh')  
-        context_encode = dropout(context_encode, self.fc_keep_prob, self.is_train)
-
-        alpha = fully_connected_no_bias(context_encode, 1, 'att_fc2')                 
-        alpha = batch_norm(alpha, 'att_bn2', self.is_train, self.use_batch_norm)
-        alpha = tf.reshape(alpha, [-1, self.num_ctx])                                                           
-        alpha = tf.nn.softmax(alpha)
-
+        """ Attention Mechanism. """
+        config = self.config
+        reshaped_contexts = tf.reshape(contexts, [-1, self.dim_ctx])
+        if config.num_attend_layers == 1:
+            # use 1 fc layer to attend
+            logits1 = self.nn.dense(reshaped_contexts,
+                                    units = 1,
+                                    activation = None,
+                                    use_bias = False,
+                                    name = 'fc_a')
+            logits1 = tf.reshape(logits1, [-1, self.num_ctx])
+            logits2 = self.nn.dense(output,
+                                    units = self.num_ctx,
+                                    activation = None,
+                                    use_bias = False,
+                                    name = 'fc_b')
+            logits = logits1 + logits2
+        else:
+            # use 2 fc layers to attend
+            temp1 = self.nn.dense(reshaped_contexts,
+                                  units = config.dim_attend_layer,
+                                  activation = tf.tanh,
+                                  name = 'fc_1a')
+            temp2 = self.nn.dense(output,
+                                  units = config.dim_attend_layer,
+                                  activation = tf.tanh,
+                                  name = 'fc_1b')
+            temp2 = tf.tile(tf.expand_dims(temp2, 1), [1, self.num_ctx, 1])
+            temp2 = tf.reshape(temp2, [-1, config.dim_attend_layer])
+            temp = temp1 + temp2
+            temp = self.nn.dropout(temp)
+            logits = self.nn.dense(temp,
+                                   units = 1,
+                                   activation = None,
+                                   use_bias = False,
+                                   name = 'fc_2')
+            logits = tf.reshape(logits, [-1, self.num_ctx])
+        alpha = tf.nn.softmax(logits)
         return alpha
 
-    def build_rnn_beam_search(self):
-        """Build the RNN using beam search"""
-        print("Building the RNN part...")
-
-        contexts = self.conv_feats
-
-        # initialize the word embedding
-        idx2vec = np.array([self.word_table.word2vec[self.word_table.idx2word[i]] 
-                           for i in range(self.num_words)])
-        emb_w = weight('emb_weights', [self.num_words, self.dim_embed], init_val=idx2vec)
-
-        # initialize the decoding layer
-        dec_w = weight('dec_weights', [self.dim_dec, self.num_words])
-        if self.init_dec_bias: 
-            dec_b = bias('dec_biases', [self.num_words], init_val=self.word_table.word_freq)
+    def decode(self, expanded_output):
+        """ Decode the expanded output of the LSTM into a word. """
+        config = self.config
+        if config.num_decode_layers == 1:
+            # use 1 fc layer to decode
+            logits = self.nn.dense(expanded_output,
+                                   units = config.vocabulary_size,
+                                   activation = None,
+                                   name = 'fc')
         else:
-            dec_b = bias('dec_biases', [self.num_words], init_val=0.0)
- 
-        # compute the mean context
-        context_mean = tf.reduce_mean(contexts, 1)
-       
-        # initialize the LSTM
-        memory, output = self.init_lstm(context_mean)
+            # use 2 fc layers to decode
+            temp = self.nn.dense(expanded_output,
+                                 units = config.dim_decode_layer,
+                                 activation = tf.tanh,
+                                 name = 'fc_1')
+            temp = self.nn.dropout(temp)
+            logits = self.nn.dense(temp,
+                                   units = config.vocabulary_size,
+                                   activation = None,
+                                   name = 'fc_2')
+        return logits
 
-        self.emb_w = emb_w
-        self.dec_w = dec_w
-        self.dec_b = dec_b
-        self.initial_memory = memory
-        self.initial_output = output
+    def build_optimizer(self):
+        """ Setup the optimizer and training operation. """
+        config = self.config
 
-        # run the RNN for a single step
-        self.run_single_step()
+        learning_rate = tf.constant(config.initial_learning_rate)
+        if config.learning_rate_decay_factor < 1.0:
+            def _learning_rate_decay_fn(learning_rate, global_step):
+                return tf.train.exponential_decay(
+                    learning_rate,
+                    global_step,
+                    decay_steps = config.num_steps_per_decay,
+                    decay_rate = config.learning_rate_decay_factor,
+                    staircase = True)
+            learning_rate_decay_fn = _learning_rate_decay_fn
+        else:
+            learning_rate_decay_fn = None
 
-    def run_single_step(self):
-        """Run the RNN for a single step""" 
-        contexts = tf.placeholder(tf.float32, [self.batch_size, self.num_ctx, self.dim_ctx]) 
-        last_memory = tf.placeholder(tf.float32, [self.batch_size, self.dim_hidden])
-        last_output = tf.placeholder(tf.float32, [self.batch_size, self.dim_hidden])
-        last_word = tf.placeholder(tf.int32, [self.batch_size])
-        initial_step = tf.placeholder(tf.bool)
+        with tf.variable_scope('optimizer', reuse = tf.AUTO_REUSE):
+            if config.optimizer == 'Adam':
+                optimizer = tf.train.AdamOptimizer(
+                    learning_rate = config.initial_learning_rate,
+                    beta1 = config.beta1,
+                    beta2 = config.beta2,
+                    epsilon = config.epsilon
+                    )
+            elif config.optimizer == 'RMSProp':
+                optimizer = tf.train.RMSPropOptimizer(
+                    learning_rate = config.initial_learning_rate,
+                    decay = config.decay,
+                    momentum = config.momentum,
+                    centered = config.centered,
+                    epsilon = config.epsilon
+                )
+            elif config.optimizer == 'Momentum':
+                optimizer = tf.train.MomentumOptimizer(
+                    learning_rate = config.initial_learning_rate,
+                    momentum = config.momentum,
+                    use_nesterov = config.use_nesterov
+                )
+            else:
+                optimizer = tf.train.GradientDescentOptimizer(
+                    learning_rate = config.initial_learning_rate
+                )
 
-        context_mean = tf.reduce_mean(contexts, 1) 
+            opt_op = tf.contrib.layers.optimize_loss(
+                loss = self.total_loss,
+                global_step = self.global_step,
+                learning_rate = learning_rate,
+                optimizer = optimizer,
+                clip_gradients = config.clip_gradients,
+                learning_rate_decay_fn = learning_rate_decay_fn)
 
-        lstm = tf.nn.rnn_cell.LSTMCell(self.dim_hidden, initializer=tf.random_normal_initializer(stddev=0.033)) 
+        self.opt_op = opt_op
 
-        # Attention mechanism
-        alpha = self.attend(contexts, last_output)                                                                      
-        weighted_context = tf.cond(initial_step,
-                                   lambda: tf.identity(context_mean),
-                                   lambda: tf.reduce_sum(contexts*tf.expand_dims(alpha, 2), 1))
-
-        word_emb = tf.cond(initial_step, 
-                           lambda: tf.zeros([self.batch_size, self.dim_embed]), 
-                           lambda: tf.nn.embedding_lookup(self.emb_w, last_word))
-            
-        # Apply the LSTM
-        with tf.variable_scope("LSTM"):
-            last_state = last_memory, last_output
-            output, state = lstm(tf.concat([weighted_context, word_emb], 1), last_state)
-            memory, _ = state
-            
-        # Compute the logits and probs
-        expanded_output = tf.concat([output, weighted_context, word_emb], 1)
-
-        logits1 = fully_connected(expanded_output, self.dim_dec, 'dec_fc')
-        logits1 = nonlinear(logits1, 'tanh')
-        logits2 = tf.nn.xw_plus_b(logits1, self.dec_w, self.dec_b)
-        probs = tf.nn.softmax(logits2) 
-        logprobs = tf.log(probs)
-
-        tf.get_variable_scope().reuse_variables()                           
-
-        self.contexts = contexts
-        self.last_memory = last_memory
-        self.last_output = last_output
-        self.last_word = last_word
-        self.initial_step = initial_step
-
-        self.memory = memory
-        self.output = output
-        self.logprobs = logprobs
- 
     def build_summary(self):
-        """Build the summary (for TensorBoard visualization)"""
-        assert self.mode=="train"
-
-        for var in tf.trainable_variables():
-            with tf.name_scope(var.name[:var.name.find(":")]):
-                with tf.name_scope("values"):
+        """ Build the summary (for TensorBoard visualization). """
+        with tf.name_scope("variables"):
+            for var in tf.trainable_variables():
+                with tf.name_scope(var.name[:var.name.find(":")]):
                     self.variable_summary(var)
 
-        for g, var in zip(self.gs, self.g_vars):
-            with tf.name_scope(var.name[:var.name.find(":")]):
-                with tf.name_scope("gradients"):
-                    self.variable_summary(g)
+        with tf.name_scope("metrics"):
+            tf.summary.scalar("cross_entropy_loss", self.cross_entropy_loss)
+            tf.summary.scalar("attention_loss", self.attention_loss)
+            tf.summary.scalar("reg_loss", self.reg_loss)
+            tf.summary.scalar("total_loss", self.total_loss)
+            tf.summary.scalar("accuracy", self.accuracy)
 
-        with tf.name_scope("cross_entropies"):
-            self.variable_summary(self.cross_entropies)
+        with tf.name_scope("attentions"):
+            self.variable_summary(self.attentions)
 
-        with tf.name_scope("attention"):
-            self.variable_summary(self.sum_alpha) 
-
-        with tf.name_scope("scores"):
-            self.variable_summary(self.scores) 
-
-        tf.summary.scalar("num_correct_words", self.num_correct_words)
-
-        tf.summary.scalar("cross_entropy_loss", self.cross_entropy_loss)
-        tf.summary.scalar("attention_loss", self.attention_loss)
-        tf.summary.scalar("l2_loss", self.l2_loss)
-        tf.summary.scalar("loss", self.loss)
-      
         self.summary = tf.summary.merge_all()
 
     def variable_summary(self, var):
+        """ Build the summary for a variable. """
         mean = tf.reduce_mean(var)
         tf.summary.scalar('mean', mean)
         stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
@@ -585,32 +537,3 @@ class CaptionGenerator(BaseModel):
         tf.summary.scalar('max', tf.reduce_max(var))
         tf.summary.scalar('min', tf.reduce_min(var))
         tf.summary.histogram('histogram', var)
-
-    def get_feed_dict(self, batch, is_train):
-        """ Get the feed dictionary for the current batch. """
-        if is_train:
-            # training phase
-            img_files, sentences, masks = batch
-            imgs = self.img_loader.load_imgs(img_files)
-
-            weights = []
-            for i in range(self.batch_size):
-                weights.append(self.word_weight[sentences[i, :]])                
-            weights = np.array(weights, np.float32)   
-
-            return {self.imgs: imgs, 
-                    self.sentences: sentences, 
-                    self.masks: masks, 
-                    self.weights: weights, 
-                    self.is_train: is_train}
-
-        else:
-            # testing or validation phase
-            img_files = batch 
-            imgs = self.img_loader.load_imgs(img_files)
-            fake_sentences = np.zeros((self.batch_size, self.max_sent_len), np.int32)
-
-            return {self.imgs: imgs, 
-                    self.sentences: fake_sentences, 
-                    self.is_train: is_train}
-

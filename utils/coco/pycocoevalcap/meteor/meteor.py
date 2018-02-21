@@ -72,7 +72,7 @@ class Meteor:
         self.lock.release()
         return score
  
-    def __del__(self):
+    def __exit__(self):
         self.lock.acquire()
         self.meteor_p.stdin.close()
         self.meteor_p.kill()
