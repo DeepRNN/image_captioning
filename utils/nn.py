@@ -119,6 +119,7 @@ class NN(object):
         """ Batch normalization layer. """
         return tf.layers.batch_normalization(
             inputs = inputs,
-            training = self.is_train,
+            training = self.train_cnn,
+            trainable = self.train_cnn,
             name = name
         )
