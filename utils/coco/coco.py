@@ -55,7 +55,6 @@ from skimage.draw import polygon
 import urllib
 import copy
 import itertools
-import mask
 import os
 import string
 from tqdm import tqdm
@@ -241,67 +240,6 @@ class COCO:
         elif type(ids) == int:
             return [self.imgs[ids]]
 
-    def showAnns(self, anns):
-        """
-        Display the specified annotations.
-        :param anns (array of object): annotations to display
-        :return: None
-        """
-        if len(anns) == 0:
-            return 0
-        if 'segmentation' in anns[0]:
-            datasetType = 'instances'
-        elif 'caption' in anns[0]:
-            datasetType = 'captions'
-        if datasetType == 'instances':
-            ax = plt.gca()
-            ax.set_autoscale_on(False)
-            polygons = []
-            color = []
-            for ann in anns:
-                c = (np.random.random((1, 3))*0.6+0.4).tolist()[0]
-                if type(ann['segmentation']) == list:
-                    # polygon
-                    for seg in ann['segmentation']:
-                        poly = np.array(seg).reshape((len(seg)/2, 2))
-                        polygons.append(Polygon(poly))
-                        color.append(c)
-                else:
-                    # mask
-                    t = self.imgs[ann['image_id']]
-                    if type(ann['segmentation']['counts']) == list:
-                        rle = mask.frPyObjects([ann['segmentation']], t['height'], t['width'])
-                    else:
-                        rle = [ann['segmentation']]
-                    m = mask.decode(rle)
-                    img = np.ones( (m.shape[0], m.shape[1], 3) )
-                    if ann['iscrowd'] == 1:
-                        color_mask = np.array([2.0,166.0,101.0])/255
-                    if ann['iscrowd'] == 0:
-                        color_mask = np.random.random((1, 3)).tolist()[0]
-                    for i in range(3):
-                        img[:,:,i] = color_mask[i]
-                    ax.imshow(np.dstack( (img, m*0.5) ))
-                if 'keypoints' in ann and type(ann['keypoints']) == list:
-                    # turn skeleton into zero-based index
-                    sks = np.array(self.loadCats(ann['category_id'])[0]['skeleton'])-1
-                    kp = np.array(ann['keypoints'])
-                    x = kp[0::3]
-                    y = kp[1::3]
-                    v = kp[2::3]
-                    for sk in sks:
-                        if np.all(v[sk]>0):
-                            plt.plot(x[sk],y[sk], linewidth=3, color=c)
-                    plt.plot(x[v==1], y[v==1],'o',markersize=8, markerfacecolor=c, markeredgecolor='k',markeredgewidth=2)
-                    plt.plot(x[v==2], y[v==2],'o',markersize=8, markerfacecolor=c, markeredgecolor=c, markeredgewidth=2)
-            p = PatchCollection(polygons, facecolor=color, linewidths=0, alpha=0.4)
-            ax.add_collection(p)
-            p = PatchCollection(polygons, facecolor="none", edgecolors=color, linewidths=2)
-            ax.add_collection(p)
-        elif datasetType == 'captions':
-            for ann in anns:
-                print ann['caption']
-
     def loadRes(self, resFile):
         """
         Load result file and return a result api object.
@@ -320,30 +258,11 @@ class COCO:
         annsImgIds = [ann['image_id'] for ann in anns]
         assert set(annsImgIds) == (set(annsImgIds) & set(self.getImgIds())), \
                'Results do not correspond to current coco set'
-        if 'caption' in anns[0]:
-            imgIds = set([img['id'] for img in res.dataset['images']]) & set([ann['image_id'] for ann in anns])
-            res.dataset['images'] = [img for img in res.dataset['images'] if img['id'] in imgIds]
-            for id, ann in enumerate(anns):
-                ann['id'] = id+1
-        elif 'bbox' in anns[0] and not anns[0]['bbox'] == []:
-            res.dataset['categories'] = copy.deepcopy(self.dataset['categories'])
-            for id, ann in enumerate(anns):
-                bb = ann['bbox']
-                x1, x2, y1, y2 = [bb[0], bb[0]+bb[2], bb[1], bb[1]+bb[3]]
-                if not 'segmentation' in ann:
-                    ann['segmentation'] = [[x1, y1, x1, y2, x2, y2, x2, y1]]
-                ann['area'] = bb[2]*bb[3]
-                ann['id'] = id+1
-                ann['iscrowd'] = 0
-        elif 'segmentation' in anns[0]:
-            res.dataset['categories'] = copy.deepcopy(self.dataset['categories'])
-            for id, ann in enumerate(anns):
-                # now only support compressed RLE format as segmentation results
-                ann['area'] = mask.area([ann['segmentation']])[0]
-                if not 'bbox' in ann:
-                    ann['bbox'] = mask.toBbox([ann['segmentation']])[0]
-                ann['id'] = id+1
-                ann['iscrowd'] = 0
+        assert 'caption' in anns[0]
+        imgIds = set([img['id'] for img in res.dataset['images']]) & set([ann['image_id'] for ann in anns])
+        res.dataset['images'] = [img for img in res.dataset['images'] if img['id'] in imgIds]
+        for id, ann in enumerate(anns):
+            ann['id'] = id+1
         print 'DONE (t=%0.2fs)'%(time.time()- tic)
 
         res.dataset['annotations'] = anns

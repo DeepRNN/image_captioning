@@ -284,7 +284,6 @@ class CaptionGenerator(BaseModel):
                                              context,
                                              word_embed],
                                              axis = 1)
-                expanded_output = self.nn.dropout(expanded_output)
                 logits = self.decode(expanded_output)
                 probs = tf.nn.softmax(logits)
                 prediction = tf.argmax(logits, 1)
@@ -359,6 +358,7 @@ class CaptionGenerator(BaseModel):
     def initialize(self, context_mean):
         """ Initialize the LSTM using the mean context. """
         config = self.config
+        context_mean = self.nn.dropout(context_mean)
         if config.num_initalize_layers == 1:
             # use 1 fc layer to initialize
             memory = self.nn.dense(context_mean,
@@ -396,6 +396,8 @@ class CaptionGenerator(BaseModel):
         """ Attention Mechanism. """
         config = self.config
         reshaped_contexts = tf.reshape(contexts, [-1, self.dim_ctx])
+        reshaped_contexts = self.nn.dropout(reshaped_contexts)
+        output = self.nn.dropout(output)
         if config.num_attend_layers == 1:
             # use 1 fc layer to attend
             logits1 = self.nn.dense(reshaped_contexts,
@@ -436,6 +438,7 @@ class CaptionGenerator(BaseModel):
     def decode(self, expanded_output):
         """ Decode the expanded output of the LSTM into a word. """
         config = self.config
+        expanded_output = self.nn.dropout(expanded_output)
         if config.num_decode_layers == 1:
             # use 1 fc layer to decode
             logits = self.nn.dense(expanded_output,
