@@ -51,6 +51,14 @@ class CaptionData(object):
         else:
             return 1
 
+    def __lt__(self, other):
+        assert isinstance(other, CaptionData)
+        return self.score < other.score
+
+    def __eq__(self, other):
+        assert isinstance(other, CaptionData)
+        return self.score == other.score
+
 class TopN(object):
     def __init__(self, n):
         self._n = n
