@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 import cPickle as pickle
 import copy
 import json
@@ -91,7 +90,7 @@ class BaseModel(object):
                     image_file = batch[l]
                     image_name = image_file.split(os.sep)[-1]
                     image_name = os.path.splitext(image_name)[0]
-                    img = mpimg.imread(image_file)
+                    img = plt.imread(image_file)
                     plt.imshow(img)
                     plt.axis('off')
                     plt.title(caption)
@@ -137,7 +136,7 @@ class BaseModel(object):
                 image_file = batch[l]
                 image_name = image_file.split(os.sep)[-1]
                 image_name = os.path.splitext(image_name)[0]
-                img = mpimg.imread(image_file)
+                img = plt.imread(image_file)
                 plt.imshow(img)
                 plt.axis('off')
                 plt.title(caption)
