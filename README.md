@@ -1,3 +1,8 @@
+### Python 3 Version of Show, Attend and Tell
+"This repo is python3 version of [DeepRNN/image_captioning](https://github.com/DeepRNN/image_captioning), which implements Show, Attend and Tell: Neural Image Caption Generation with Visual Attention" by Xu et al. (ICML2015). Many thanks to [salaniz's coco evaluation tool for python3](https://github.com/salaniz/pycocoevalcap).
+
+**Original readme below**
+
 ### Introduction
 This neural system for image captioning is roughly based on the paper "Show, Attend and Tell: Neural Image Caption Generation with Visual Attention" by Xu et al. (ICML2015). The input is an image, and the output is a sentence describing the content of the image. It uses a convolutional neural network to extract visual features from the image, and uses a LSTM recurrent neural network to decode these features into a sentence. A soft attention mechanism is incorporated to improve the quality of the caption. This project is implemented using the Tensorflow library, and allows end-to-end training of both CNN and RNN parts.
 
