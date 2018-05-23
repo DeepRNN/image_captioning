@@ -1,4 +1,4 @@
-### Python 3 Version of Show, Attend and Tell
+## Python 3 Version of Show, Attend and Tell using Tensorflow
 "This repo is python3 version of [DeepRNN/image_captioning](https://github.com/DeepRNN/image_captioning), which implements Show, Attend and Tell: Neural Image Caption Generation with Visual Attention" by Xu et al. (ICML2015). Many thanks to [salaniz's coco evaluation tool for python3](https://github.com/salaniz/pycocoevalcap).
 
 **Original readme below**
