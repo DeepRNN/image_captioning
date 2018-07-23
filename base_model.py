@@ -2,8 +2,12 @@ import os
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+
+import matplotlib
+matplotlib.use('agg')
+
 import matplotlib.pyplot as plt
-import cPickle as pickle
+import pickle
 import copy
 import json
 from tqdm import tqdm
@@ -66,6 +70,7 @@ class BaseModel(object):
         config = self.config
 
         results = []
+        print('config.eval_result_dir:', config.eval_result_dir)
         if not os.path.exists(config.eval_result_dir):
             os.mkdir(config.eval_result_dir)
 
@@ -81,7 +86,7 @@ class BaseModel(object):
                 word_idxs = caption_data[l][0].sentence
                 score = caption_data[l][0].score
                 caption = vocabulary.get_sentence(word_idxs)
-                results.append({'image_id': eval_data.image_ids[idx],
+                results.append({'image_id': eval_data.image_ids[idx].item(),
                                 'caption': caption})
                 idx += 1
 
@@ -97,7 +102,7 @@ class BaseModel(object):
                     plt.savefig(os.path.join(config.eval_result_dir,
                                              image_name+'_result.jpg'))
 
-        fp = open(config.eval_result_file, 'wb')
+        fp = open(config.eval_result_file, 'w')
         json.dump(results, fp)
         fp.close()
 
@@ -259,7 +264,7 @@ class BaseModel(object):
                                      str(global_step)+".npy")
 
         print("Loading the model from %s..." %save_path)
-        data_dict = np.load(save_path).item()
+        data_dict = np.load(save_path, encoding='latin1').item()
         count = 0
         for v in tqdm(tf.global_variables()):
             if v.name in data_dict.keys():
@@ -270,11 +275,14 @@ class BaseModel(object):
     def load_cnn(self, session, data_path, ignore_missing=True):
         """ Load a pretrained CNN model. """
         print("Loading the CNN from %s..." %data_path)
-        data_dict = np.load(data_path).item()
+        # import pdb; pdb.set_trace()
+        import os;
+        data_path = data_path.strip()
+        data_dict = np.load(os.getcwd() + '/' + data_path, encoding='latin1').item()
         count = 0
         for op_name in tqdm(data_dict):
             with tf.variable_scope(op_name, reuse = True):
-                for param_name, data in data_dict[op_name].iteritems():
+                for param_name, data in data_dict[op_name].items():
                     try:
                         var = tf.get_variable(param_name)
                         session.run(var.assign(data))
