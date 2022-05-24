@@ -11,17 +11,17 @@ tf.flags.DEFINE_string('phase', 'train',
                        'The phase can be train, eval or test')
 
 tf.flags.DEFINE_boolean('load', False,
-                        'Turn on to load a pretrained model from either \
+                        'Turn on to load a pre-trained model from either \
                         the latest checkpoint or a specified file')
 
 tf.flags.DEFINE_string('model_file', None,
-                       'If sepcified, load a pretrained model from this file')
+                       'If specified, load a pre-trained model from this file')
 
 tf.flags.DEFINE_boolean('load_cnn', False,
-                        'Turn on to load a pretrained CNN model')
+                        'Turn on to load a pre-trained CNN model')
 
 tf.flags.DEFINE_string('cnn_model_file', './vgg16_no_fc.npy',
-                       'The file containing a pretrained CNN model')
+                       'The file containing a pre-trained CNN model')
 
 tf.flags.DEFINE_boolean('train_cnn', False,
                         'Turn on to train both CNN and RNN. \
